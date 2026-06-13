@@ -27,6 +27,11 @@ permissions:
   contents: write
   actions: read
 
+# Concurrency: only 1 running instance per workflow + branch, cancel outdated runs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   package:
     runs-on: ubuntu-latest

@@ -21,6 +21,11 @@ on:
 permissions:
   contents: write
 
+# Concurrency: only 1 running instance per workflow + branch, cancel outdated runs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: macos-26
