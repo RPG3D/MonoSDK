@@ -1,0 +1,45 @@
+name: Test Workflow Trigger
+
+# 这个 workflow 用于测试 GitHub Actions 是否能正常触发
+# 它会在一个简单的 Ubuntu 环境中运行，验证基本功能
+
+on:
+  push:
+    branches: [ci/auto-build]
+    paths:
+      - '.github/workflows/test-trigger.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ci/auto-build
+
+      - name: Test basic functionality
+        run: |
+          echo "✅ GitHub Actions is working!"
+          echo "Repository: ${{ github.repository }}"
+          echo "Branch: ${{ github.ref }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Actor: ${{ github.actor }}"
+          uname -a
+          pwd
+          ls -la
+
+      - name: Verify MonoSDK structure
+        run: |
+          echo "Checking MonoSDK directory structure..."
+          ls -la Win64/ || echo "Win64 not found"
+          ls -la Mac/ || echo "Mac not found"
+          ls -la Android/ || echo "Android not found"
+          ls -la IOS/ || echo "IOS not found"
+          ls -la IOSSimulator/ || echo "IOSSimulator not found"
+          ls -la Linux/ || echo "Linux not found"
+          echo "✅ Test completed!"
