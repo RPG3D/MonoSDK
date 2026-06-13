@@ -1,0 +1,311 @@
+name: Build MonoSDK - All Platforms
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'Debug'
+        type: choice
+        options:
+          - Debug
+          - Release
+      platform:
+        description: 'Target platform'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - linux
+          - macos
+          - android
+          - ios
+          - iossimulator
+          - windows
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push' ||
+      github.event.inputs.platform == 'all' ||
+      github.event.inputs.platform == 'linux'
+    steps:
+      - name: Checkout MonoSDK
+        uses: actions/checkout@v4
+        with:
+          ref: ci/auto-build
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build clang libicu-dev libssl-dev libkrb5-dev
+
+      - name: Clone dotnet/runtime
+        run: |
+          git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
+
+      - name: Build Mono + libs
+        run: |
+          cd dotnet-runtime
+          ./build.sh mono+libs -configuration ${{ github.event.inputs.build_type || 'Debug' }}
+
+      - name: Copy artifacts to SDK
+        run: |
+          chmod +x CopySDKFromSrc.sh
+          ./CopySDKFromSrc.sh $(pwd)/dotnet-runtime linux ${{ github.event.inputs.build_type || 'Debug' }}
+
+      - name: Set artifact variables
+        id: artifact
+        run: |
+          if [ "${{ github.event.inputs.build_type || 'Debug' }}" == "Release" ]; then
+            echo "name=MonoSDK-Linux-x64-Release" >> $GITHUB_OUTPUT
+          else
+            echo "name=MonoSDK-Linux-x64-Debug" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: Linux/
+          retention-days: 30
+          if-no-files-found: error
+
+  build-windows:
+    runs-on: windows-2022
+    if: |
+      github.event_name == 'push' ||
+      github.event.inputs.platform == 'all' ||
+      github.event.inputs.platform == 'windows'
+    steps:
+      - name: Checkout MonoSDK
+        uses: actions/checkout@v4
+        with:
+          ref: ci/auto-build
+
+      - name: Clone dotnet/runtime
+        run: |
+          git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
+        shell: bash
+
+      - name: Build Mono + libs
+        run: |
+          cd dotnet-runtime
+          build.cmd mono+libs -configuration ${{ github.event.inputs.build_type || 'Debug' }}
+        shell: cmd
+
+      - name: Copy artifacts to SDK
+        run: |
+          CopySDKFromSrc.bat %CD%\dotnet-runtime ${{ github.event.inputs.build_type || 'Debug' }}
+        shell: cmd
+
+      - name: Set artifact variables
+        id: artifact
+        run: |
+          if [ "${{ github.event.inputs.build_type || 'Debug' }}" == "Release" ]; then
+            echo "name=MonoSDK-Windows-x64-Release" >> $GITHUB_OUTPUT
+          else
+            echo "name=MonoSDK-Windows-x64-Debug" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: Win64/
+          retention-days: 30
+          if-no-files-found: error
+
+  build-macos:
+    runs-on: macos-26
+    if: |
+      github.event_name == 'push' ||
+      github.event.inputs.platform == 'all' ||
+      github.event.inputs.platform == 'macos'
+    steps:
+      - name: Checkout MonoSDK
+        uses: actions/checkout@v4
+        with:
+          ref: ci/auto-build
+
+      - name: Clone dotnet/runtime
+        run: |
+          git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
+
+      - name: Build Mono + libs
+        run: |
+          cd dotnet-runtime
+          ./build.sh mono+libs -configuration ${{ github.event.inputs.build_type || 'Debug' }}
+
+      - name: Copy artifacts to SDK
+        run: |
+          chmod +x CopySDKFromSrc.sh
+          ./CopySDKFromSrc.sh $(pwd)/dotnet-runtime macos ${{ github.event.inputs.build_type || 'Debug' }}
+
+      - name: Set artifact variables
+        id: artifact
+        run: |
+          if [ "${{ github.event.inputs.build_type || 'Debug' }}" == "Release" ]; then
+            echo "name=MonoSDK-macOS-arm64-Release" >> $GITHUB_OUTPUT
+          else
+            echo "name=MonoSDK-macOS-arm64-Debug" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: Mac/
+          retention-days: 30
+          if-no-files-found: error
+
+  build-ios:
+    runs-on: macos-26
+    if: |
+      github.event_name == 'push' ||
+      github.event.inputs.platform == 'all' ||
+      github.event.inputs.platform == 'ios'
+    steps:
+      - name: Checkout MonoSDK
+        uses: actions/checkout@v4
+        with:
+          ref: ci/auto-build
+
+      - name: Clone dotnet/runtime
+        run: |
+          git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
+
+      - name: Build Mono + libs for iOS
+        run: |
+          cd dotnet-runtime
+          ./build.sh mono+libs -os ios -configuration ${{ github.event.inputs.build_type || 'Debug' }}
+
+      - name: Copy artifacts to SDK (iOS)
+        run: |
+          chmod +x CopySDKFromSrc.sh
+          ./CopySDKFromSrc.sh $(pwd)/dotnet-runtime ios ${{ github.event.inputs.build_type || 'Debug' }}
+
+      - name: Build Mono framework (iOS only)
+        run: |
+          ./MakeMonoFramework.sh ios $(pwd)/IOS
+
+      - name: Set artifact variables (iOS)
+        id: artifact
+        run: |
+          if [ "${{ github.event.inputs.build_type || 'Debug' }}" == "Release" ]; then
+            echo "name=MonoSDK-iOS-arm64-Release" >> $GITHUB_OUTPUT
+          else
+            echo "name=MonoSDK-iOS-arm64-Debug" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload iOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: IOS/
+          retention-days: 30
+          if-no-files-found: error
+
+  build-iossimulator:
+    runs-on: macos-26
+    if: |
+      github.event_name == 'push' ||
+      github.event.inputs.platform == 'all' ||
+      github.event.inputs.platform == 'iossimulator'
+    steps:
+      - name: Checkout MonoSDK
+        uses: actions/checkout@v4
+        with:
+          ref: ci/auto-build
+
+      - name: Clone dotnet/runtime
+        run: |
+          git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
+
+      - name: Build Mono + libs for iOS Simulator
+        run: |
+          cd dotnet-runtime
+          ./build.sh mono+libs -os iossimulator -configuration ${{ github.event.inputs.build_type || 'Debug' }}
+
+      - name: Copy artifacts to SDK (iOS Simulator)
+        run: |
+          chmod +x CopySDKFromSrc.sh
+          ./CopySDKFromSrc.sh $(pwd)/dotnet-runtime iossimulator ${{ github.event.inputs.build_type || 'Debug' }}
+
+      - name: Build Mono framework (iOS Simulator only)
+        run: |
+          ./MakeMonoFramework.sh iossimulator $(pwd)/IOSSimulator
+
+      - name: Set artifact variables (iOS Simulator)
+        id: artifact
+        run: |
+          if [ "${{ github.event.inputs.build_type || 'Debug' }}" == "Release" ]; then
+            echo "name=MonoSDK-iOS-Simulator-Release" >> $GITHUB_OUTPUT
+          else
+            echo "name=MonoSDK-iOS-Simulator-Debug" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload iOS Simulator artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: IOSSimulator/
+          retention-days: 30
+          if-no-files-found: error
+
+  build-android:
+    runs-on: macos-26
+    if: |
+      github.event_name == 'push' ||
+      github.event.inputs.platform == 'all' ||
+      github.event.inputs.platform == 'android'
+    steps:
+      - name: Checkout MonoSDK
+        uses: actions/checkout@v4
+        with:
+          ref: ci/auto-build
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Clone dotnet/runtime
+        run: |
+          git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
+
+      - name: Build Mono + libs for Android
+        run: |
+          cd dotnet-runtime
+          ./build.sh mono+libs -os android -arch arm64 -configuration ${{ github.event.inputs.build_type || 'Debug' }}
+
+      - name: Copy artifacts to SDK
+        run: |
+          chmod +x CopySDKFromSrc.sh
+          ./CopySDKFromSrc.sh $(pwd)/dotnet-runtime android ${{ github.event.inputs.build_type || 'Debug' }}
+
+      - name: Set artifact variables
+        id: artifact
+        run: |
+          if [ "${{ github.event.inputs.build_type || 'Debug' }}" == "Release" ]; then
+            echo "name=MonoSDK-Android-arm64-Release" >> $GITHUB_OUTPUT
+          else
+            echo "name=MonoSDK-Android-arm64-Debug" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: Android/
+          retention-days: 30
+          if-no-files-found: error
