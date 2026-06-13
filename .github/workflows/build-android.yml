@@ -1,6 +1,12 @@
 name: Build MonoSDK - Android arm64
 
 on:
+  # Push trigger: auto-build on pushes to ci/auto-build branch
+  push:
+    branches: [ci/auto-build]
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
   workflow_dispatch:
     inputs:
       build_type:
@@ -11,8 +17,6 @@ on:
         options:
           - Debug
           - Release
-  schedule:
-    - cron: '0 0 * * 0'  # Weekly on Sunday
 
 permissions:
   contents: write
@@ -49,10 +53,19 @@ jobs:
           chmod +x CopySDKFromSrc.sh
           ./CopySDKFromSrc.sh $(pwd)/dotnet-runtime android ${{ github.event.inputs.build_type || 'Debug' }}
 
+      - name: Set artifact variables
+        id: artifact
+        run: |
+          if [ "${{ github.event.inputs.build_type || 'Debug' }}" == "Release" ]; then
+            echo "name=MonoSDK-Android-arm64-Release" >> $GITHUB_OUTPUT
+          else
+            echo "name=MonoSDK-Android-arm64-Debug" >> $GITHUB_OUTPUT
+          fi
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: MonoSDK-Android-arm64
+          name: ${{ steps.artifact.outputs.name }}
           path: Android/
           retention-days: 30
           if-no-files-found: error

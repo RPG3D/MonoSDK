@@ -1,6 +1,12 @@
 name: Build MonoSDK - iOS & iOS Simulator
 
 on:
+  # Push trigger: auto-build on pushes to ci/auto-build branch
+  push:
+    branches: [ci/auto-build]
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
   workflow_dispatch:
     inputs:
       build_type:
@@ -62,11 +68,31 @@ jobs:
         run: |
           ./MakeMonoFramework.sh iossimulator $(pwd)/IOSSimulator
 
+      - name: Set artifact variables (iOS)
+        if: matrix.platform == 'ios'
+        id: artifact-ios
+        run: |
+          if [ "${{ github.event.inputs.build_type || 'Debug' }}" == "Release" ]; then
+            echo "name=MonoSDK-iOS-arm64-Release" >> $GITHUB_OUTPUT
+          else
+            echo "name=MonoSDK-iOS-arm64-Debug" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set artifact variables (iOS Simulator)
+        if: matrix.platform == 'iossimulator'
+        id: artifact-iossim
+        run: |
+          if [ "${{ github.event.inputs.build_type || 'Debug' }}" == "Release" ]; then
+            echo "name=MonoSDK-iOSSimulator-arm64-Release" >> $GITHUB_OUTPUT
+          else
+            echo "name=MonoSDK-iOSSimulator-arm64-Debug" >> $GITHUB_OUTPUT
+          fi
+
       - name: Upload iOS artifacts
         if: matrix.platform == 'ios'
         uses: actions/upload-artifact@v4
         with:
-          name: MonoSDK-iOS-arm64
+          name: ${{ steps.artifact-ios.outputs.name }}
           path: IOS/
           retention-days: 30
           if-no-files-found: error
@@ -75,7 +101,7 @@ jobs:
         if: matrix.platform == 'iossimulator'
         uses: actions/upload-artifact@v4
         with:
-          name: MonoSDK-iOSSimulator-arm64
+          name: ${{ steps.artifact-iossim.outputs.name }}
           path: IOSSimulator/
           retention-days: 30
           if-no-files-found: error

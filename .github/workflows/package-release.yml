@@ -48,77 +48,115 @@ jobs:
 
       - name: Download Linux SDK artifact
         run: |
-          echo ">>> Downloading Linux SDK artifact..."
+          BUILD_TYPE="${{ github.event.inputs.build_type || 'Debug' }}"
+          echo ">>> Downloading Linux SDK artifact (${BUILD_TYPE})..."
+          if [ "$BUILD_TYPE" == "Release" ]; then
+            ARTIFACT_NAME="MonoSDK-Linux-x64-Release"
+          else
+            ARTIFACT_NAME="MonoSDK-Linux-x64-Debug"
+          fi
           RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-linux.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
           if [ -n "$RUN_ID" ]; then
             mkdir -p Linux
-            gh run download $RUN_ID --repo ${{ github.repository }} --name "MonoSDK-Linux-x64" --dir Linux/
-            echo "✅ Linux SDK downloaded"
+            gh run download $RUN_ID --repo ${{ github.repository }} --name "$ARTIFACT_NAME" --dir Linux/
+            echo "✅ Linux SDK downloaded (${BUILD_TYPE})"
           else
-            echo "⚠️ Linux SDK artifact not found (no successful build)"
+            echo "⚠️ Linux SDK artifact not found (${BUILD_TYPE})"
           fi
           ls -la Linux/ 2>/dev/null || echo "❌ Linux/ not downloaded"
 
       - name: Download macOS SDK artifact
         run: |
-          echo ">>> Downloading macOS SDK artifact..."
+          BUILD_TYPE="${{ github.event.inputs.build_type || 'Debug' }}"
+          echo ">>> Downloading macOS SDK artifact (${BUILD_TYPE})..."
+          if [ "$BUILD_TYPE" == "Release" ]; then
+            ARTIFACT_NAME="MonoSDK-macOS-arm64-Release"
+          else
+            ARTIFACT_NAME="MonoSDK-macOS-arm64-Debug"
+          fi
           RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-macos.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
           if [ -n "$RUN_ID" ]; then
             mkdir -p Mac
-            cd Mac
-            gh run download $RUN_ID --repo ${{ github.repository }} --name "MonoSDK-macOS-arm64" --dir .
-            echo "✅ macOS SDK downloaded"
-            cd ..
+            gh run download $RUN_ID --repo ${{ github.repository }} --name "$ARTIFACT_NAME" --dir Mac/
+            echo "✅ macOS SDK downloaded (${BUILD_TYPE})"
           else
-            echo "⚠️ macOS SDK artifact not found (no successful build)"
+            echo "⚠️ macOS SDK artifact not found (${BUILD_TYPE})"
           fi
           ls -la Mac/ 2>/dev/null || echo "❌ Mac/ not downloaded"
 
       - name: Download Windows SDK artifact
         run: |
-          echo ">>> Downloading Windows SDK artifact..."
+          BUILD_TYPE="${{ github.event.inputs.build_type || 'Debug' }}"
+          echo ">>> Downloading Windows SDK artifact (${BUILD_TYPE})..."
+          if [ "$BUILD_TYPE" == "Release" ]; then
+            ARTIFACT_NAME="MonoSDK-Windows-x64-Release"
+          else
+            ARTIFACT_NAME="MonoSDK-Windows-x64-Debug"
+          fi
           RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-windows.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
           if [ -n "$RUN_ID" ]; then
-            gh run download $RUN_ID --repo ${{ github.repository }} --name "MonoSDK-Windows-x64" --dir .
-            echo "✅ Windows SDK downloaded"
+            mkdir -p Win64
+            gh run download $RUN_ID --repo ${{ github.repository }} --name "$ARTIFACT_NAME" --dir Win64/
+            echo "✅ Windows SDK downloaded (${BUILD_TYPE})"
           else
-            echo "⚠️ Windows SDK artifact not found (no successful build)"
+            echo "⚠️ Windows SDK artifact not found (${BUILD_TYPE})"
           fi
           ls -la Win64/ 2>/dev/null || echo "❌ Win64/ not downloaded"
 
       - name: Download Android SDK artifact
         run: |
-          echo ">>> Downloading Android SDK artifact..."
+          BUILD_TYPE="${{ github.event.inputs.build_type || 'Debug' }}"
+          echo ">>> Downloading Android SDK artifact (${BUILD_TYPE})..."
+          if [ "$BUILD_TYPE" == "Release" ]; then
+            ARTIFACT_NAME="MonoSDK-Android-arm64-Release"
+          else
+            ARTIFACT_NAME="MonoSDK-Android-arm64-Debug"
+          fi
           RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-android.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
           if [ -n "$RUN_ID" ]; then
-            gh run download $RUN_ID --repo ${{ github.repository }} --name "MonoSDK-Android-arm64" --dir .
-            echo "✅ Android SDK downloaded"
+            mkdir -p Android
+            gh run download $RUN_ID --repo ${{ github.repository }} --name "$ARTIFACT_NAME" --dir Android/
+            echo "✅ Android SDK downloaded (${BUILD_TYPE})"
           else
-            echo "⚠️ Android SDK artifact not found (no successful build)"
+            echo "⚠️ Android SDK artifact not found (${BUILD_TYPE})"
           fi
           ls -la Android/ 2>/dev/null || echo "❌ Android/ not downloaded"
 
       - name: Download iOS SDK artifact
         run: |
-          echo ">>> Downloading iOS SDK artifact..."
+          BUILD_TYPE="${{ github.event.inputs.build_type || 'Debug' }}"
+          echo ">>> Downloading iOS SDK artifact (${BUILD_TYPE})..."
+          if [ "$BUILD_TYPE" == "Release" ]; then
+            ARTIFACT_NAME="MonoSDK-iOS-arm64-Release"
+          else
+            ARTIFACT_NAME="MonoSDK-iOS-arm64-Debug"
+          fi
           RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-ios.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
           if [ -n "$RUN_ID" ]; then
-            gh run download $RUN_ID --repo ${{ github.repository }} --name "MonoSDK-iOS-arm64" --dir .
-            echo "✅ iOS SDK downloaded"
+            mkdir -p IOS
+            gh run download $RUN_ID --repo ${{ github.repository }} --name "$ARTIFACT_NAME" --dir IOS/
+            echo "✅ iOS SDK downloaded (${BUILD_TYPE})"
           else
-            echo "⚠️ iOS SDK artifact not found (no successful build)"
+            echo "⚠️ iOS SDK artifact not found (${BUILD_TYPE})"
           fi
           ls -la IOS/ 2>/dev/null || echo "❌ IOS/ not downloaded"
 
       - name: Download iOS Simulator SDK artifact
         run: |
-          echo ">>> Downloading iOS Simulator SDK artifact..."
+          BUILD_TYPE="${{ github.event.inputs.build_type || 'Debug' }}"
+          echo ">>> Downloading iOS Simulator SDK artifact (${BUILD_TYPE})..."
+          if [ "$BUILD_TYPE" == "Release" ]; then
+            ARTIFACT_NAME="MonoSDK-iOSSimulator-arm64-Release"
+          else
+            ARTIFACT_NAME="MonoSDK-iOSSimulator-arm64-Debug"
+          fi
           RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-ios.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
           if [ -n "$RUN_ID" ]; then
-            gh run download $RUN_ID --repo ${{ github.repository }} --name "MonoSDK-iOSSimulator-arm64" --dir .
-            echo "✅ iOS Simulator SDK downloaded"
+            mkdir -p IOSSimulator
+            gh run download $RUN_ID --repo ${{ github.repository }} --name "$ARTIFACT_NAME" --dir IOSSimulator/
+            echo "✅ iOS Simulator SDK downloaded (${BUILD_TYPE})"
           else
-            echo "⚠️ iOS Simulator SDK artifact not found (no successful build)"
+            echo "⚠️ iOS Simulator SDK artifact not found (${BUILD_TYPE})"
           fi
           ls -la IOSSimulator/ 2>/dev/null || echo "❌ IOSSimulator/ not downloaded"
 
@@ -140,15 +178,16 @@ jobs:
 
       - name: Create package directory
         run: |
-          BUILD_TYPE="${{ github.event.inputs.build_type || 'Debug' }}"
-          VERSION="${{ github.event.inputs.version || github.ref_name }}"
-          PACKAGE_NAME="MonoSDK-${VERSION}-${BUILD_TYPE}"
+          PACKAGE_NAME="MonoSDK"
           echo "PACKAGE_NAME=$PACKAGE_NAME" >> $GITHUB_ENV
           mkdir -p package/${PACKAGE_NAME}
 
       - name: Copy SDKs to package
         run: |
-          # Copy all platform SDKs to the package directory
+          PACKAGE_NAME="${{ env.PACKAGE_NAME }}"
+          mkdir -p package/${PACKAGE_NAME}
+
+          # Copy platform directories
           cp -Rf Win64/ package/${PACKAGE_NAME}/ 2>/dev/null || echo "⚠️ Win64 not available"
           cp -Rf Mac/ package/${PACKAGE_NAME}/ 2>/dev/null || echo "⚠️ Mac not available"
           cp -Rf Android/ package/${PACKAGE_NAME}/ 2>/dev/null || echo "⚠️ Android not available"
@@ -160,33 +199,23 @@ jobs:
           cp BuildMonoSDK.sh package/${PACKAGE_NAME}/ 2>/dev/null || true
           cp BuildMonoSDK.bat package/${PACKAGE_NAME}/ 2>/dev/null || true
           cp MakeMonoFramework.sh package/${PACKAGE_NAME}/ 2>/dev/null || true
+          cp CopySDKFromSrc.sh package/${PACKAGE_NAME}/ 2>/dev/null || true
+          cp CopySDKFromSrc.bat package/${PACKAGE_NAME}/ 2>/dev/null || true
 
-          # Create a README
-          cat > package/${PACKAGE_NAME}/README.md <<EOF
-          # MonoSDK ${VERSION} (${BUILD_TYPE})
+          # Copy Unreal Build System files
+          cp MonoSDK.Build.cs package/${PACKAGE_NAME}/ 2>/dev/null || true
+          cp MonoSDK_APL.xml package/${PACKAGE_NAME}/ 2>/dev/null || true
 
-          Mono runtime SDK for UnrealSharp
+          # Copy documentation
+          cp README.md package/${PACKAGE_NAME}/ 2>/dev/null || true
+          cp .gitignore package/${PACKAGE_NAME}/ 2>/dev/null || true
 
-          ## Platforms
-
-          - Win64/       - Windows x64
-          - Mac/          - macOS arm64
-          - Android/      - Android arm64
-          - IOS/         - iOS arm64
-          - IOSSimulator/ - iOS Simulator arm64
-          - Linux/        - Linux x64
-
-          ## Build Info
-
-          Built from: https://github.com/dotnet/runtime.git (branch: release/10.0)
-          Build type: ${BUILD_TYPE}
-          Build date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
-
-          ## Usage
-
-          1. Copy the platform directory to your UnrealSharp plugin's Source/ThirdParty/MonoSDK/
-          2. Or use the build scripts (BuildMonoSDK.sh / BuildMonoSDK.bat) to rebuild from source
-          EOF
+          # Copy include/ from any platform (e.g., Linux)
+          if [ -d "Linux/include" ]; then
+            cp -Rf Linux/include package/${PACKAGE_NAME}/include 2>/dev/null || true
+          elif [ -d "Mac/include" ]; then
+            cp -Rf Mac/include package/${PACKAGE_NAME}/include 2>/dev/null || true
+          fi
 
           echo "✅ Package created at package/${PACKAGE_NAME}/"
           ls -la package/${PACKAGE_NAME}/
@@ -194,15 +223,18 @@ jobs:
       - name: Create ZIP archive
         run: |
           cd package
-          zip -r ${PACKAGE_NAME}.zip ${PACKAGE_NAME}/
-          echo "✅ ZIP created: package/${PACKAGE_NAME}.zip"
-          ls -lh ${PACKAGE_NAME}.zip
+          # ZIP file name includes version and build_type
+          ZIP_NAME="MonoSDK-${{ github.event.inputs.version || 'v0.1.0' }}-${{ github.event.inputs.build_type || 'Debug' }}.zip"
+          zip -r ${ZIP_NAME} MonoSDK/
+          echo "✅ ZIP created: package/${ZIP_NAME}"
+          ls -lh ${ZIP_NAME}
+          echo "ZIP_NAME=${ZIP_NAME}" >> $GITHUB_ENV
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.PACKAGE_NAME }}
-          path: package/${{ env.PACKAGE_NAME }}.zip
+          name: MonoSDK-${{ github.event.inputs.version || 'v0.1.0' }}-${{ github.event.inputs.build_type || 'Debug' }}
+          path: package/${{ env.ZIP_NAME }}
           retention-days: 90  # Longer retention for releases
 
       - name: Create GitHub Release
@@ -227,14 +259,15 @@ jobs:
 
             ## Installation
             1. Download the ZIP file
-            2. Extract to your UnrealSharp plugin's `Source/ThirdParty/MonoSDK/` directory
-            3. Or use the build scripts to rebuild from source
+            2. Extract to your UnrealSharp plugin's `Source/ThirdParty/` directory
+            3. Rename the extracted directory to `MonoSDK/` (if not already)
+            4. Or use the build scripts to rebuild from source
 
             ## Build Info
             Built from: https://github.com/dotnet/runtime.git (branch: release/10.0)
             Build date: ${{ github.event.inputs.version || github.ref_name }}
           files: |
-            package/${{ env.PACKAGE_NAME }}.zip
+            package/${{ env.ZIP_NAME }}
           draft: false
           prerelease: false
         env:

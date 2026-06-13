@@ -18,8 +18,6 @@ on:
         options:
           - Debug
           - Release
-  schedule:
-    - cron: '0 0 * * 0'  # Weekly on Sunday
 
 permissions:
   contents: write
@@ -53,10 +51,19 @@ jobs:
           chmod +x CopySDKFromSrc.sh
           ./CopySDKFromSrc.sh $(pwd)/dotnet-runtime linux ${{ github.event.inputs.build_type || 'Debug' }}
 
+      - name: Set artifact variables
+        id: artifact
+        run: |
+          if [ "${{ github.event.inputs.build_type || 'Debug' }}" == "Release" ]; then
+            echo "name=MonoSDK-Linux-x64-Release" >> $GITHUB_OUTPUT
+          else
+            echo "name=MonoSDK-Linux-x64-Debug" >> $GITHUB_OUTPUT
+          fi
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: MonoSDK-Linux-x64
+          name: ${{ steps.artifact.outputs.name }}
           path: Linux/
           retention-days: 30
           if-no-files-found: error
