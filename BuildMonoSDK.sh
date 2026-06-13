@@ -92,8 +92,12 @@ case "$PLATFORM" in
         echo ">>> Building Mono + libs for Android (arm64, $BUILD_TYPE)..."
         ./build.sh mono+libs -os android -arch arm64 -configuration "$BUILD_TYPE"
         ;;
+    linux)
+        echo ">>> Building Mono + libs for Linux (x64, $BUILD_TYPE)..."
+        ./build.sh mono+libs -configuration "$BUILD_TYPE"
+        ;;
     *)
-        echo "Error: unknown platform '$PLATFORM'. Supported: macos | android | ios | iossimulator" >&2
+        echo "Error: unknown platform '$PLATFORM'. Supported: macos | android | ios | iossimulator | linux" >&2
         exit 1
         ;;
 esac
@@ -136,19 +140,88 @@ case "$PLATFORM" in
         RUNTIME_TFM="net10.0-android-$BUILD_TYPE-arm64"
         DEST="$SDK_DIR/Android"
         ;;
+    linux)
+        MONO_TRIPLE="linux.x64.$BUILD_TYPE"
+        RUNTIME_TFM="net10.0-linux-$BUILD_TYPE-x64"
+        DEST="$SDK_DIR/Linux"
+        ;;
 esac
 
 rm -rf "$DEST"
 mkdir -p "$DEST"
 
-cp -Rf "$SRC_ARTIFACTS/obj/mono/$MONO_TRIPLE/out/include/mono-2.0/" "$DEST/include"
-cp -Rf "$SRC_ARTIFACTS/obj/mono/$MONO_TRIPLE/out/lib/"              "$DEST/lib"
-# out/bin/ only exists for macOS (contains mono-sgen); iOS/Android have no bin/.
-if [[ -d "$SRC_ARTIFACTS/obj/mono/$MONO_TRIPLE/out/bin" ]]; then
-    cp -Rf "$SRC_ARTIFACTS/obj/mono/$MONO_TRIPLE/out/bin/" "$DEST/bin"
+# ── Copy artifacts (cross-platform safe) ───────────────────────────────────────
+# Use rsync if available; fall back to cd + cp -Rf * pattern.
+# The "cp -Rf source/. dest/" pattern behaves differently on macOS (BSD cp) vs Linux (GNU cp):
+#   - macOS: copies contents of source/ into dest/  ✅
+#   - Linux:  may nest source dir itself inside dest/  ❌
+#
+# Cross-platform safe pattern:
+#   1. cd into source directory
+#   2. cp -Rf * "$DEST/subdir/"   (NOT "." — use explicit glob)
+
+# include/: strip mono-2.0/ prefix → files land in $DEST/include/ directly
+if [[ -d "$SRC_ARTIFACTS/obj/mono/$MONO_TRIPLE/out/include/mono-2.0" ]]; then
+    cd "$SRC_ARTIFACTS/obj/mono/$MONO_TRIPLE/out/include/mono-2.0"
+    cp -Rf . "$DEST/include/" 2>/dev/null || true
+    # Flatten: if mono-2.0/ itself got nested, fix it
+    if [[ -d "$DEST/include/mono-2.0" ]]; then
+        mv "$DEST/include/mono-2.0/"* "$DEST/include/" 2>/dev/null || true
+        rm -rf "$DEST/include/mono-2.0"
+    fi
+    cd "$SDK_DIR"
 fi
-cp -Rf "$SRC_ARTIFACTS/bin/runtime/$RUNTIME_TFM/"                   "$DEST/runtime"
-cp -Rf "$SRC_ARTIFACTS/bin/mono/$MONO_TRIPLE/IL/"                   "$DEST/runtime"
+
+# lib/: handle both flat and nested (lib/lib/) layouts
+if [[ -d "$SRC_ARTIFACTS/obj/mono/$MONO_TRIPLE/out/lib" ]]; then
+    cd "$SRC_ARTIFACTS/obj/mono/$MONO_TRIPLE/out/lib"
+    # If there's a lib/ subdir, copy from there; otherwise copy current dir contents
+    if [[ -d "lib" ]]; then
+        cd lib
+        cp -Rf . "$DEST/lib/" 2>/dev/null || true
+        cd ..
+    else
+        cp -Rf . "$DEST/lib/" 2>/dev/null || true
+    fi
+    # Flatten: if lib/ itself got nested, fix it
+    if [[ -d "$DEST/lib/lib" ]]; then
+        mv "$DEST/lib/lib/"* "$DEST/lib/" 2>/dev/null || true
+        rm -rf "$DEST/lib/lib"
+    fi
+    cd "$SDK_DIR"
+fi
+
+# bin/: only exists for macOS (mono-sgen); iOS/Android/Linux may not have it
+if [[ -d "$SRC_ARTIFACTS/obj/mono/$MONO_TRIPLE/out/bin" ]]; then
+    cd "$SRC_ARTIFACTS/obj/mono/$MONO_TRIPLE/out/bin"
+    cp -Rf . "$DEST/bin/" 2>/dev/null || true
+    # Flatten: if bin/ itself got nested, fix it
+    if [[ -d "$DEST/bin/bin" ]]; then
+        mv "$DEST/bin/bin/"* "$DEST/bin/" 2>/dev/null || true
+        rm -rf "$DEST/bin/bin"
+    fi
+    cd "$SDK_DIR"
+fi
+
+# runtime/: copy BCL DLLs
+if [[ -d "$SRC_ARTIFACTS/bin/runtime/$RUNTIME_TFM" ]]; then
+    cd "$SRC_ARTIFACTS/bin/runtime/$RUNTIME_TFM"
+    cp -Rf . "$DEST/runtime/" 2>/dev/null || true
+    # Flatten: if $RUNTIME_TFM/ itself got nested, fix it
+    local NESTED=$(find "$DEST/runtime" -maxdepth 1 -type d ! -path "$DEST/runtime" | head -1)
+    if [[ -n "$NESTED" && $(find "$DEST/runtime" -maxdepth 1 -type f | wc -l) -eq 0 ]]; then
+        mv "$NESTED/"* "$DEST/runtime/" 2>/dev/null || true
+        rm -rf "$NESTED"
+    fi
+    cd "$SDK_DIR"
+fi
+
+# IL/: copy IL assemblies
+if [[ -d "$SRC_ARTIFACTS/bin/mono/$MONO_TRIPLE/IL" ]]; then
+    cd "$SRC_ARTIFACTS/bin/mono/$MONO_TRIPLE/IL"
+    cp -Rf . "$DEST/runtime/" 2>/dev/null || true
+    cd "$SDK_DIR"
+fi
 
 # iOS/IOSSimulator: copy native interop libs from bin/native/<TFM>/.
 # These are NOT in obj/mono/<TRIPLE>/out/lib/ and must be copied separately.
@@ -177,6 +250,7 @@ case "$PLATFORM" in
     ios)     PLATFORM_LABEL="iOS (arm64)";           BUILD_CMD="./build.sh mono+libs -os ios -arch arm64 -configuration $BUILD_TYPE" ;;
     iossimulator) PLATFORM_LABEL="iOS Simulator (arm64)"; BUILD_CMD="./build.sh mono+libs -os iossimulator -arch arm64 -configuration $BUILD_TYPE" ;;
     android) PLATFORM_LABEL="Android (arm64)";       BUILD_CMD="./build.sh mono+libs -os android -arch arm64 -configuration $BUILD_TYPE" ;;
+    linux)   PLATFORM_LABEL="Linux (x64)";           BUILD_CMD="./build.sh mono+libs -configuration $BUILD_TYPE" ;;
 esac
 
 cat > "$DEST/VERSION.txt" <<EOF
