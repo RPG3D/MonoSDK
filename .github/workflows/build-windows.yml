@@ -1,0 +1,60 @@
+name: Build MonoSDK - Windows x64
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'Debug'
+        type: choice
+        options:
+          - Debug
+          - Release
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout MonoSDK
+        uses: actions/checkout@v4
+        with:
+          ref: ci/auto-build
+
+      - name: Clone dotnet/runtime
+        run: |
+          git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
+        shell: bash
+
+      - name: Build Mono + libs
+        run: |
+          cd dotnet-runtime
+          build.cmd mono+libs -configuration ${{ github.event.inputs.build_type || 'Debug' }}
+        shell: cmd
+
+      - name: Copy artifacts to SDK
+        run: |
+          .\BuildMonoSDK.bat %CD%\dotnet-runtime
+        shell: cmd
+
+      - name: Commit and push
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add Win64/
+          git commit -m "Auto-build: Windows x64 (${{ github.event.inputs.build_type || 'Debug' }}) [skip ci]" || echo "No changes to commit"
+          git push origin ci/auto-build
+        shell: bash
+
+      - name: Upload artifacts (backup)
+        uses: actions/upload-artifact@v4
+        with:
+          name: MonoSDK-Windows-x64
+          path: Win64/
+          retention-days: 30

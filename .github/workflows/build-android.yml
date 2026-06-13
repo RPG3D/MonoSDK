@@ -1,0 +1,64 @@
+name: Build MonoSDK - Android arm64
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'Debug'
+        type: choice
+        options:
+          - Debug
+          - Release
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout MonoSDK
+        uses: actions/checkout@v4
+        with:
+          ref: ci/auto-build
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install CMake and Ninja
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build
+
+      - name: Clone dotnet/runtime
+        run: |
+          git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
+
+      - name: Build Mono + libs for Android
+        run: |
+          cd dotnet-runtime
+          ./build.sh mono+libs -os android -arch arm64 -configuration ${{ github.event.inputs.build_type || 'Debug' }}
+
+      - name: Copy artifacts to SDK
+        run: |
+          ./BuildMonoSDK.sh $(pwd)/dotnet-runtime android ${{ github.event.inputs.build_type || 'Debug' }}
+
+      - name: Commit and push
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add Android/
+          git commit -m "Auto-build: Android arm64 (${{ github.event.inputs.build_type || 'Debug' }}) [skip ci]" || echo "No changes to commit"
+          git push origin ci/auto-build
+
+      - name: Upload artifacts (backup)
+        uses: actions/upload-artifact@v4
+        with:
+          name: MonoSDK-Android-arm64
+          path: Android/
+          retention-days: 30

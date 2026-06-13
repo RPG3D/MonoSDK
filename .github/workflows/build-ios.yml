@@ -1,0 +1,86 @@
+name: Build MonoSDK - iOS & iOS Simulator
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'Debug'
+        type: choice
+        options:
+          - Debug
+          - Release
+      platform:
+        description: 'Target platform'
+        required: true
+        default: 'both'
+        type: choice
+        options:
+          - both
+          - ios
+          - iossimulator
+
+permissions:
+  contents: write
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        platform: ${{ fromJSON(github.event.inputs.platform == 'both' && '["ios", "iossimulator"]' || format('["{0}"]', github.event.inputs.platform)) }}
+      fail-fast: false
+
+    steps:
+      - name: Checkout MonoSDK
+        uses: actions/checkout@v4
+        with:
+          ref: ci/auto-build
+
+      - name: Clone dotnet/runtime
+        run: |
+          git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
+
+      - name: Build Mono + libs for ${{ matrix.platform }}
+        run: |
+          cd dotnet-runtime
+          ./build.sh mono+libs -os ${{ matrix.platform }} -arch arm64 -configuration ${{ github.event.inputs.build_type || 'Debug' }}
+
+      - name: Copy artifacts to SDK
+        run: |
+          ./BuildMonoSDK.sh $(pwd)/dotnet-runtime ${{ matrix.platform }} ${{ github.event.inputs.build_type || 'Debug' }}
+
+      - name: Build Mono framework (iOS only)
+        if: matrix.platform == 'ios'
+        run: |
+          ./MakeMonoFramework.sh ios $(pwd)/IOS
+
+      - name: Build Mono framework (iOS Simulator only)
+        if: matrix.platform == 'iossimulator'
+        run: |
+          ./MakeMonoFramework.sh iossimulator $(pwd)/IOSSimulator
+
+      - name: Commit and push
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add IOS/ IOSSimulator/
+          git commit -m "Auto-build: ${{ matrix.platform }} arm64 (${{ github.event.inputs.build_type || 'Debug' }}) [skip ci]" || echo "No changes to commit"
+          git push origin ci/auto-build
+
+      - name: Upload iOS artifacts (backup)
+        if: matrix.platform == 'ios'
+        uses: actions/upload-artifact@v4
+        with:
+          name: MonoSDK-iOS-arm64
+          path: IOS/
+          retention-days: 30
+
+      - name: Upload iOS Simulator artifacts (backup)
+        if: matrix.platform == 'iossimulator'
+        uses: actions/upload-artifact@v4
+        with:
+          name: MonoSDK-iOSSimulator-arm64
+          path: IOSSimulator/
+          retention-days: 30

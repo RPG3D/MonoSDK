@@ -1,0 +1,62 @@
+name: Build All Platforms
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'Debug'
+        type: choice
+        options:
+          - Debug
+          - Release
+
+permissions:
+  contents: read
+
+jobs:
+  trigger-windows:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Windows build
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: build-windows.yml
+          inputs: '{ "build_type": "${{ github.event.inputs.build_type }}" }'
+
+  trigger-macos:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger macOS build
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: build-macos.yml
+          inputs: '{ "build_type": "${{ github.event.inputs.build_type }}" }'
+
+  trigger-ios:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger iOS build
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: build-ios.yml
+          inputs: '{ "build_type": "${{ github.event.inputs.build_type }}", "platform": "both" }'
+
+  trigger-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Android build
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: build-android.yml
+          inputs: '{ "build_type": "${{ github.event.inputs.build_type }}" }'
+
+  trigger-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Linux build
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: build-linux.yml
+          inputs: '{ "build_type": "${{ github.event.inputs.build_type }}" }'

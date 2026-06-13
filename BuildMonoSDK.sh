@@ -92,8 +92,12 @@ case "$PLATFORM" in
         echo ">>> Building Mono + libs for Android (arm64, $BUILD_TYPE)..."
         ./build.sh mono+libs -os android -arch arm64 -configuration "$BUILD_TYPE"
         ;;
+    linux)
+        echo ">>> Building Mono + libs for Linux (x64, $BUILD_TYPE)..."
+        ./build.sh mono+libs -configuration "$BUILD_TYPE"
+        ;;
     *)
-        echo "Error: unknown platform '$PLATFORM'. Supported: macos | android | ios | iossimulator" >&2
+        echo "Error: unknown platform '$PLATFORM'. Supported: macos | android | ios | iossimulator | linux" >&2
         exit 1
         ;;
 esac
@@ -136,6 +140,11 @@ case "$PLATFORM" in
         RUNTIME_TFM="net10.0-android-$BUILD_TYPE-arm64"
         DEST="$SDK_DIR/Android"
         ;;
+    linux)
+        MONO_TRIPLE="linux.x64.$BUILD_TYPE"
+        RUNTIME_TFM="net10.0-linux-$BUILD_TYPE-x64"
+        DEST="$SDK_DIR/Linux"
+        ;;
 esac
 
 rm -rf "$DEST"
@@ -177,6 +186,7 @@ case "$PLATFORM" in
     ios)     PLATFORM_LABEL="iOS (arm64)";           BUILD_CMD="./build.sh mono+libs -os ios -arch arm64 -configuration $BUILD_TYPE" ;;
     iossimulator) PLATFORM_LABEL="iOS Simulator (arm64)"; BUILD_CMD="./build.sh mono+libs -os iossimulator -arch arm64 -configuration $BUILD_TYPE" ;;
     android) PLATFORM_LABEL="Android (arm64)";       BUILD_CMD="./build.sh mono+libs -os android -arch arm64 -configuration $BUILD_TYPE" ;;
+    linux)   PLATFORM_LABEL="Linux (x64)";           BUILD_CMD="./build.sh mono+libs -configuration $BUILD_TYPE" ;;
 esac
 
 cat > "$DEST/VERSION.txt" <<EOF
