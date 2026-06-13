@@ -34,7 +34,7 @@ if "%SDK_DIR:~-1%"=="\" set "SDK_DIR=%SDK_DIR:~0,-1%"
 rem Build type: Debug (default) or Release
 set "BUILD_TYPE_RAW=%~2"
 if "%BUILD_TYPE_RAW%"=="" set "BUILD_TYPE_RAW=Debug"
-echo %BUILD_TYPE_RAW% | findstr /i "^Debug$ ^Release$" >/dev/null
+echo %BUILD_TYPE_RAW% | findstr /i "Debug Release" >nul
 if errorlevel 1 (
     echo Error: unknown build-type '%BUILD_TYPE_RAW%'. Use Debug or Release. >&2
     exit /b 1
