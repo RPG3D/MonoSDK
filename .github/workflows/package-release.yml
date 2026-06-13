@@ -59,6 +59,8 @@ jobs:
           fi
           RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-all.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
           if [ -n "$RUN_ID" ]; then
+            # Clean target directory before downloading
+            rm -rf Linux/
             mkdir -p Linux
             gh run download $RUN_ID --repo ${{ github.repository }} --name "$ARTIFACT_NAME" --dir Linux/
             echo "✅ Linux SDK downloaded (${BUILD_TYPE})"
@@ -78,6 +80,8 @@ jobs:
           fi
           RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-all.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
           if [ -n "$RUN_ID" ]; then
+            # Clean target directory before downloading to avoid "file exists" error
+            rm -rf Mac/
             mkdir -p Mac
             gh run download $RUN_ID --repo ${{ github.repository }} --name "$ARTIFACT_NAME" --dir Mac/
             echo "✅ macOS SDK downloaded (${BUILD_TYPE})"
@@ -97,6 +101,8 @@ jobs:
           fi
           RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-all.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
           if [ -n "$RUN_ID" ]; then
+            # Clean target directory before downloading
+            rm -rf Win64/
             mkdir -p Win64
             gh run download $RUN_ID --repo ${{ github.repository }} --name "$ARTIFACT_NAME" --dir Win64/
             echo "✅ Windows SDK downloaded (${BUILD_TYPE})"
@@ -116,6 +122,8 @@ jobs:
           fi
           RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-all.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
           if [ -n "$RUN_ID" ]; then
+            # Clean target directory before downloading
+            rm -rf Android/
             mkdir -p Android
             gh run download $RUN_ID --repo ${{ github.repository }} --name "$ARTIFACT_NAME" --dir Android/
             echo "✅ Android SDK downloaded (${BUILD_TYPE})"
@@ -135,6 +143,8 @@ jobs:
           fi
           RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-all.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
           if [ -n "$RUN_ID" ]; then
+            # Clean target directory before downloading
+            rm -rf IOS/
             mkdir -p IOS
             gh run download $RUN_ID --repo ${{ github.repository }} --name "$ARTIFACT_NAME" --dir IOS/
             echo "✅ iOS SDK downloaded (${BUILD_TYPE})"
@@ -154,6 +164,8 @@ jobs:
           fi
           RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-all.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
           if [ -n "$RUN_ID" ]; then
+            # Clean target directory before downloading
+            rm -rf IOSSimulator/
             mkdir -p IOSSimulator
             gh run download $RUN_ID --repo ${{ github.repository }} --name "$ARTIFACT_NAME" --dir IOSSimulator/
             echo "✅ iOS Simulator SDK downloaded (${BUILD_TYPE})"
