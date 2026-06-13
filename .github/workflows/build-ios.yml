@@ -51,7 +51,7 @@ jobs:
       - name: Build Mono + libs for ${{ matrix.platform }}
         run: |
           cd dotnet-runtime
-          ./build.sh mono+libs -os ${{ matrix.platform }} -arch arm64 -configuration ${{ github.event.inputs.build_type || 'Debug' }}
+          ./build.sh mono+libs -os ${{ matrix.platform }} -configuration ${{ github.event.inputs.build_type || 'Debug' }}
 
       - name: Copy artifacts to SDK
         run: |
