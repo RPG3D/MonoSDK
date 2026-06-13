@@ -46,7 +46,8 @@ jobs:
 
       - name: Copy artifacts to SDK
         run: |
-          ./BuildMonoSDK.sh $(pwd)/dotnet-runtime android ${{ github.event.inputs.build_type || 'Debug' }}
+          chmod +x CopySDKFromSrc.sh
+          ./CopySDKFromSrc.sh $(pwd)/dotnet-runtime android ${{ github.event.inputs.build_type || 'Debug' }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

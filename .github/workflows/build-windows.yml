@@ -40,7 +40,7 @@ jobs:
 
       - name: Copy artifacts to SDK
         run: |
-          .\BuildMonoSDK.bat %CD%\dotnet-runtime
+          CopySDKFromSrc.bat %CD%\dotnet-runtime
         shell: cmd
 
       - name: Upload artifacts
