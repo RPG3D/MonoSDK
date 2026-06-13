@@ -48,17 +48,10 @@ jobs:
         run: |
           ./BuildMonoSDK.sh $(pwd)/dotnet-runtime android ${{ github.event.inputs.build_type || 'Debug' }}
 
-      - name: Commit and push
-        run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          git add Android/
-          git commit -m "Auto-build: Android arm64 (${{ github.event.inputs.build_type || 'Debug' }}) [skip ci]" || echo "No changes to commit"
-          git push origin ci/auto-build
-
-      - name: Upload artifacts (backup)
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: MonoSDK-Android-arm64
           path: Android/
           retention-days: 30
+          if-no-files-found: error

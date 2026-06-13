@@ -66,17 +66,10 @@ jobs:
           cp -Rf "$SRC_ARTIFACTS/bin/runtime/$RUNTIME_TFM/" "$DEST/runtime/"
           cp -Rf "$SRC_ARTIFACTS/bin/mono/$MONO_TRIPLE/IL/" "$DEST/runtime/"
 
-      - name: Commit and push
-        run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          git add Linux/
-          git commit -m "Auto-build: Linux x64 (${{ github.event.inputs.build_type || 'Debug' }}) [skip ci]" || echo "No changes to commit"
-          git push origin ci/auto-build
-
-      - name: Upload artifacts (backup)
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: MonoSDK-Linux-x64
           path: Linux/
           retention-days: 30
+          if-no-files-found: error

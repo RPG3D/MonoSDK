@@ -1,0 +1,37 @@
+# MonoSDK .gitignore
+# This repo contains only build scripts and configuration
+# Pre-built SDKs are distributed via GitHub Releases
+
+# Ignore all platform SDK directories (binaries are in Releases)
+Win64/
+Mac/
+Android/
+IOS/
+IOSSimulator/
+Linux/
+
+# Ignore shared include directory (distributed via Releases)
+include/
+
+# Ignore build artifacts
+dotnet-runtime/
+artifacts/
+out/
+
+# Ignore temporary files
+*.tmp
+*.log
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Ignore IDE files
+.vscode/
+.idea/
+*.suo
+*.user
+
+# Ignore test files
+test-*/
+TRIGGER_BUILD.md

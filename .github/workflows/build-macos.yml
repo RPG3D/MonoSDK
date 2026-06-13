@@ -40,17 +40,10 @@ jobs:
         run: |
           ./BuildMonoSDK.sh $(pwd)/dotnet-runtime macos ${{ github.event.inputs.build_type || 'Debug' }}
 
-      - name: Commit and push
-        run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          git add Mac/ include/
-          git commit -m "Auto-build: macOS arm64 (${{ github.event.inputs.build_type || 'Debug' }}) [skip ci]" || echo "No changes to commit"
-          git push origin ci/auto-build
-
-      - name: Upload artifacts (backup)
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: MonoSDK-macOS-arm64
           path: Mac/
           retention-days: 30
+          if-no-files-found: error
