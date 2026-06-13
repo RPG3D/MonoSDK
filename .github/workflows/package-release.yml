@@ -1,0 +1,164 @@
+name: Package and Release MonoSDK
+
+# 这个 workflow 将所有平台的 MonoSDK 打包成一个 zip 并发布到 GitHub Releases
+# 可以从 CI/auto-build 分支获取所有已构建的 SDK
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        default: 'v0.1.0'
+        type: string
+      build_type:
+        description: 'Build type to package'
+        required: true
+        default: 'Debug'
+        type: choice
+        options:
+          - Debug
+          - Release
+      create_release:
+        description: 'Create GitHub Release?'
+        required: true
+        default: 'true'
+        type: boolean
+  push:
+    tags:
+      - 'v*'  # Push tags like v1.0.0 will trigger this workflow
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout MonoSDK
+        uses: actions/checkout@v4
+        with:
+          ref: ci/auto-build
+          fetch-depth: 0  # Fetch all history to get all platform SDKs
+
+      - name: Verify SDK directories
+        run: |
+          echo "Verifying MonoSDK directory structure..."
+          echo "=== Win64 ==="
+          ls -la Win64/ 2>/dev/null || echo "❌ Win64 not found"
+          echo "=== Mac ==="
+          ls -la Mac/ 2>/dev/null || echo "❌ Mac not found"
+          echo "=== Android ==="
+          ls -la Android/ 2>/dev/null || echo "❌ Android not found"
+          echo "=== IOS ==="
+          ls -la IOS/ 2>/dev/null || echo "❌ IOS not found"
+          echo "=== IOSSimulator ==="
+          ls -la IOSSimulator/ 2>/dev/null || echo "❌ IOSSimulator not found"
+          echo "=== Linux ==="
+          ls -la Linux/ 2>/dev/null || echo "❌ Linux not found"
+
+      - name: Create package directory
+        run: |
+          BUILD_TYPE="${{ github.event.inputs.build_type || 'Debug' }}"
+          VERSION="${{ github.event.inputs.version || github.ref_name }}"
+          PACKAGE_NAME="MonoSDK-${VERSION}-${BUILD_TYPE}"
+          echo "PACKAGE_NAME=$PACKAGE_NAME" >> $GITHUB_ENV
+          mkdir -p package/${PACKAGE_NAME}
+
+      - name: Copy SDKs to package
+        run: |
+          # Copy all platform SDKs to the package directory
+          cp -Rf Win64/ package/${PACKAGE_NAME}/ 2>/dev/null || echo "⚠️ Win64 not available"
+          cp -Rf Mac/ package/${PACKAGE_NAME}/ 2>/dev/null || echo "⚠️ Mac not available"
+          cp -Rf Android/ package/${PACKAGE_NAME}/ 2>/dev/null || echo "⚠️ Android not available"
+          cp -Rf IOS/ package/${PACKAGE_NAME}/ 2>/dev/null || echo "⚠️ IOS not available"
+          cp -Rf IOSSimulator/ package/${PACKAGE_NAME}/ 2>/dev/null || echo "⚠️ IOSSimulator not available"
+          cp -Rf Linux/ package/${PACKAGE_NAME}/ 2>/dev/null || echo "⚠️ Linux not available"
+
+          # Copy shared include directory
+          cp -Rf include/ package/${PACKAGE_NAME}/ 2>/dev/null || echo "⚠️ include not available"
+
+          # Copy build scripts
+          cp BuildMonoSDK.sh package/${PACKAGE_NAME}/ 2>/dev/null || true
+          cp BuildMonoSDK.bat package/${PACKAGE_NAME}/ 2>/dev/null || true
+          cp MakeMonoFramework.sh package/${PACKAGE_NAME}/ 2>/dev/null || true
+
+          # Create a README
+          cat > package/${PACKAGE_NAME}/README.md <<EOF
+          # MonoSDK ${VERSION} (${BUILD_TYPE})
+
+          Mono runtime SDK for UnrealSharp
+
+          ## Platforms
+
+          - Win64/       - Windows x64
+          - Mac/          - macOS arm64
+          - Android/      - Android arm64
+          - IOS/         - iOS arm64
+          - IOSSimulator/ - iOS Simulator arm64
+          - Linux/        - Linux x64
+
+          ## Build Info
+
+          Built from: https://github.com/dotnet/runtime.git (branch: release/10.0)
+          Build type: ${BUILD_TYPE}
+          Build date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
+          ## Usage
+
+          1. Copy the platform directory to your UnrealSharp plugin's Source/ThirdParty/MonoSDK/
+          2. Or use the build scripts (BuildMonoSDK.sh / BuildMonoSDK.bat) to rebuild from source
+          EOF
+
+          echo "✅ Package created at package/${PACKAGE_NAME}/"
+          ls -la package/${PACKAGE_NAME}/
+
+      - name: Create ZIP archive
+        run: |
+          cd package
+          zip -r ${PACKAGE_NAME}.zip ${PACKAGE_NAME}/
+          echo "✅ ZIP created: package/${PACKAGE_NAME}.zip"
+          ls -lh ${PACKAGE_NAME}.zip
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PACKAGE_NAME }}
+          path: package/${{ env.PACKAGE_NAME }}.zip
+          retention-days: 90  # Longer retention for releases
+
+      - name: Create GitHub Release
+        if: ${{ github.event.inputs.create_release == 'true' || startsWith(github.ref, 'refs/tags/') }}
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.version || github.ref_name }}
+          name: MonoSDK ${{ github.event.inputs.version || github.ref_name }}
+          body: |
+            MonoSDK release ${{ github.event.inputs.version || github.ref_name }}
+
+            ## Build Type
+            ${{ github.event.inputs.build_type || 'Debug' }}
+
+            ## Platforms
+            - ✅ Win64 (Windows x64)
+            - ✅ Mac (macOS arm64)
+            - ✅ Android (arm64)
+            - ✅ iOS (arm64)
+            - ✅ iOS Simulator (arm64)
+            - ✅ Linux (x64)
+
+            ## Installation
+            1. Download the ZIP file
+            2. Extract to your UnrealSharp plugin's `Source/ThirdParty/MonoSDK/` directory
+            3. Or use the build scripts to rebuild from source
+
+            ## Build Info
+            Built from: https://github.com/dotnet/runtime.git (branch: release/10.0)
+            Build date: ${{ github.event.inputs.version || github.ref_name }}
+          files: |
+            package/${{ env.PACKAGE_NAME }}.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
