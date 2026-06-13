@@ -37,12 +37,7 @@ concurrency:
 
 jobs:
   build-ios:
-    runs-on: macos-latest
-    strategy:
-      matrix:
-        platform: ${{ fromJSON(github.event.inputs.platform == 'both' && '["ios", "iossimulator"]' || format('["{0}"]', github.event.inputs.platform)) }}
-      fail-fast: false
-
+    runs-on: macos-26
     steps:
       - name: Checkout MonoSDK
         uses: actions/checkout@v4
@@ -53,28 +48,21 @@ jobs:
         run: |
           git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
 
-      - name: Build Mono + libs for ${{ matrix.platform }}
+      - name: Build Mono + libs for iOS
         run: |
           cd dotnet-runtime
-          ./build.sh mono+libs -os ${{ matrix.platform }} -configuration ${{ github.event.inputs.build_type || 'Debug' }}
+          ./build.sh mono+libs -os ios -configuration ${{ github.event.inputs.build_type || 'Debug' }}
 
-      - name: Copy artifacts to SDK
+      - name: Copy artifacts to SDK (iOS)
         run: |
           chmod +x CopySDKFromSrc.sh
-          ./CopySDKFromSrc.sh $(pwd)/dotnet-runtime ${{ matrix.platform }} ${{ github.event.inputs.build_type || 'Debug' }}
+          ./CopySDKFromSrc.sh $(pwd)/dotnet-runtime ios ${{ github.event.inputs.build_type || 'Debug' }}
 
       - name: Build Mono framework (iOS only)
-        if: matrix.platform == 'ios'
         run: |
           ./MakeMonoFramework.sh ios $(pwd)/IOS
 
-      - name: Build Mono framework (iOS Simulator only)
-        if: matrix.platform == 'iossimulator'
-        run: |
-          ./MakeMonoFramework.sh iossimulator $(pwd)/IOSSimulator
-
       - name: Set artifact variables (iOS)
-        if: matrix.platform == 'ios'
         id: artifact-ios
         run: |
           if [ "${{ github.event.inputs.build_type || 'Debug' }}" == "Release" ]; then
@@ -83,8 +71,41 @@ jobs:
             echo "name=MonoSDK-iOS-arm64-Debug" >> $GITHUB_OUTPUT
           fi
 
+      - name: Upload iOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact-ios.outputs.name }}
+          path: IOS/
+          retention-days: 30
+          if-no-files-found: error
+
+  build-iossimulator:
+    runs-on: macos-26
+    steps:
+      - name: Checkout MonoSDK
+        uses: actions/checkout@v4
+        with:
+          ref: ci/auto-build
+
+      - name: Clone dotnet/runtime
+        run: |
+          git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
+
+      - name: Build Mono + libs for iOS Simulator
+        run: |
+          cd dotnet-runtime
+          ./build.sh mono+libs -os iossimulator -configuration ${{ github.event.inputs.build_type || 'Debug' }}
+
+      - name: Copy artifacts to SDK (iOS Simulator)
+        run: |
+          chmod +x CopySDKFromSrc.sh
+          ./CopySDKFromSrc.sh $(pwd)/dotnet-runtime iossimulator ${{ github.event.inputs.build_type || 'Debug' }}
+
+      - name: Build Mono framework (iOS Simulator only)
+        run: |
+          ./MakeMonoFramework.sh iossimulator $(pwd)/IOSSimulator
+
       - name: Set artifact variables (iOS Simulator)
-        if: matrix.platform == 'iossimulator'
         id: artifact-iossim
         run: |
           if [ "${{ github.event.inputs.build_type || 'Debug' }}" == "Release" ]; then
@@ -93,17 +114,7 @@ jobs:
             echo "name=MonoSDK-iOSSimulator-arm64-Debug" >> $GITHUB_OUTPUT
           fi
 
-      - name: Upload iOS artifacts
-        if: matrix.platform == 'ios'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.artifact-ios.outputs.name }}
-          path: IOS/
-          retention-days: 30
-          if-no-files-found: error
-
       - name: Upload iOS Simulator artifacts
-        if: matrix.platform == 'iossimulator'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.artifact-iossim.outputs.name }}
