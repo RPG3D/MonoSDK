@@ -41,8 +41,9 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     if: |
-      ${{ github.event.inputs.platform == 'all' ||
-           github.event.inputs.platform == 'linux' }}
+      github.event_name == 'push' ||
+      github.event.inputs.platform == 'all' ||
+      github.event.inputs.platform == 'linux'
     steps:
       - name: Checkout MonoSDK
         uses: actions/checkout@v4
@@ -88,8 +89,9 @@ jobs:
   build-windows:
     runs-on: windows-2022
     if: |
-      ${{ github.event.inputs.platform == 'all' ||
-           github.event.inputs.platform == 'windows' }}
+      github.event_name == 'push' ||
+      github.event.inputs.platform == 'all' ||
+      github.event.inputs.platform == 'windows'
     steps:
       - name: Checkout MonoSDK
         uses: actions/checkout@v4
@@ -133,8 +135,9 @@ jobs:
   build-macos:
     runs-on: macos-26
     if: |
-      ${{ github.event.inputs.platform == 'all' ||
-           github.event.inputs.platform == 'macos' }}
+      github.event_name == 'push' ||
+      github.event.inputs.platform == 'all' ||
+      github.event.inputs.platform == 'macos'
     steps:
       - name: Checkout MonoSDK
         uses: actions/checkout@v4
@@ -175,8 +178,9 @@ jobs:
   build-ios:
     runs-on: macos-26
     if: |
-      ${{ github.event.inputs.platform == 'all' ||
-           github.event.inputs.platform == 'ios' }}
+      github.event_name == 'push' ||
+      github.event.inputs.platform == 'all' ||
+      github.event.inputs.platform == 'ios'
     steps:
       - name: Checkout MonoSDK
         uses: actions/checkout@v4
@@ -221,8 +225,9 @@ jobs:
   build-iossimulator:
     runs-on: macos-26
     if: |
-      ${{ github.event.inputs.platform == 'all' ||
-           github.event.inputs.platform == 'iossimulator' }}
+      github.event_name == 'push' ||
+      github.event.inputs.platform == 'all' ||
+      github.event.inputs.platform == 'iossimulator'
     steps:
       - name: Checkout MonoSDK
         uses: actions/checkout@v4
@@ -267,8 +272,9 @@ jobs:
   build-android:
     runs-on: macos-26
     if: |
-      ${{ github.event.inputs.platform == 'all' ||
-           github.event.inputs.platform == 'android' }}
+      github.event_name == 'push' ||
+      github.event.inputs.platform == 'all' ||
+      github.event.inputs.platform == 'android'
     steps:
       - name: Checkout MonoSDK
         uses: actions/checkout@v4
