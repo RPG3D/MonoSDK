@@ -225,20 +225,11 @@ public class MonoSDK : ModuleRules
         if (bUseMono && Target.ProjectFile != null)
         {
             string projectDir = Path.GetDirectoryName(Target.ProjectFile.FullName)!;
-            // Use the same platform dir naming as the BCL sections above.
-            // For Win64: "Win64", Mac: "Mac", Android: "Android", IOS: platformDir from arch
-            string managedPlatformDir;
-#if UNREALSHARP_MONO && PLATFORM_WINDOWS
-            managedPlatformDir = "Win64";
-#elif UNREALSHARP_MONO && PLATFORM_MAC
-            managedPlatformDir = "Mac";
-#elif UNREALSHARP_MONO && PLATFORM_ANDROID
-            managedPlatformDir = "Android";
-#elif UNREALSHARP_MONO && PLATFORM_IOS
-            managedPlatformDir = (Target.Architecture == UnrealArch.IOSSimulator) ? "IOSSimulator" : "IOS";
-#else
-            managedPlatformDir = Target.Platform.ToString();
-#endif
+            string managedPlatformDir = Target.Platform.ToString();
+            // IOS uses the same UnrealTargetPlatform for device and simulator;
+            // distinguish via architecture so simulator builds pick up IOSSimulator/.
+            if (Target.Platform == UnrealTargetPlatform.IOS && Target.Architecture == UnrealArch.IOSSimulator)
+                managedPlatformDir = "IOSSimulator";
             string managedContentDir = Path.Combine(projectDir, "Content", "Managed", managedPlatformDir);
             if (Directory.Exists(managedContentDir))
             {
