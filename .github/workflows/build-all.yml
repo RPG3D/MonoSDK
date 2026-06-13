@@ -256,9 +256,9 @@ jobs:
         id: artifact
         run: |
           if [ "${{ github.event.inputs.build_type || 'Debug' }}" == "Release" ]; then
-            echo "name=MonoSDK-iOSSimulator-arm64-Release" >> $GITHUB_OUTPUT
+            echo "name=MonoSDK-iOS-Simulator-Release" >> $GITHUB_OUTPUT
           else
-            echo "name=MonoSDK-iOSSimulator-arm64-Debug" >> $GITHUB_OUTPUT
+            echo "name=MonoSDK-iOS-Simulator-Debug" >> $GITHUB_OUTPUT
           fi
 
       - name: Upload iOS Simulator artifacts

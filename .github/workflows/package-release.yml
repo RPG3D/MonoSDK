@@ -19,9 +19,6 @@ on:
         options:
           - Debug
           - Release
-  push:
-    tags:
-      - 'v*'  # Push tags like v1.0.0 will trigger this workflow
 
 permissions:
   contents: write
@@ -60,7 +57,7 @@ jobs:
           else
             ARTIFACT_NAME="MonoSDK-Linux-x64-Debug"
           fi
-          RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-linux.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
+          RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-all.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
           if [ -n "$RUN_ID" ]; then
             mkdir -p Linux
             gh run download $RUN_ID --repo ${{ github.repository }} --name "$ARTIFACT_NAME" --dir Linux/
@@ -79,7 +76,7 @@ jobs:
           else
             ARTIFACT_NAME="MonoSDK-macOS-arm64-Debug"
           fi
-          RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-macos.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
+          RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-all.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
           if [ -n "$RUN_ID" ]; then
             mkdir -p Mac
             gh run download $RUN_ID --repo ${{ github.repository }} --name "$ARTIFACT_NAME" --dir Mac/
@@ -98,7 +95,7 @@ jobs:
           else
             ARTIFACT_NAME="MonoSDK-Windows-x64-Debug"
           fi
-          RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-windows.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
+          RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-all.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
           if [ -n "$RUN_ID" ]; then
             mkdir -p Win64
             gh run download $RUN_ID --repo ${{ github.repository }} --name "$ARTIFACT_NAME" --dir Win64/
@@ -117,7 +114,7 @@ jobs:
           else
             ARTIFACT_NAME="MonoSDK-Android-arm64-Debug"
           fi
-          RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-android.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
+          RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-all.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
           if [ -n "$RUN_ID" ]; then
             mkdir -p Android
             gh run download $RUN_ID --repo ${{ github.repository }} --name "$ARTIFACT_NAME" --dir Android/
@@ -136,7 +133,7 @@ jobs:
           else
             ARTIFACT_NAME="MonoSDK-iOS-arm64-Debug"
           fi
-          RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-ios.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
+          RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-all.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
           if [ -n "$RUN_ID" ]; then
             mkdir -p IOS
             gh run download $RUN_ID --repo ${{ github.repository }} --name "$ARTIFACT_NAME" --dir IOS/
@@ -151,11 +148,11 @@ jobs:
           BUILD_TYPE="${{ github.event.inputs.build_type || 'Debug' }}"
           echo ">>> Downloading iOS Simulator SDK artifact (${BUILD_TYPE})..."
           if [ "$BUILD_TYPE" == "Release" ]; then
-            ARTIFACT_NAME="MonoSDK-iOSSimulator-arm64-Release"
+            ARTIFACT_NAME="MonoSDK-iOS-Simulator-Release"
           else
-            ARTIFACT_NAME="MonoSDK-iOSSimulator-arm64-Debug"
+            ARTIFACT_NAME="MonoSDK-iOS-Simulator-Debug"
           fi
-          RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-ios.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
+          RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-all.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
           if [ -n "$RUN_ID" ]; then
             mkdir -p IOSSimulator
             gh run download $RUN_ID --repo ${{ github.repository }} --name "$ARTIFACT_NAME" --dir IOSSimulator/
