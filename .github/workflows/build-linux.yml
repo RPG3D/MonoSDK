@@ -1,6 +1,13 @@
 name: Build MonoSDK - Linux x64
 
 on:
+  # Push trigger: auto-build on pushes to ci/auto-build branch
+  # The [skip ci] in commit messages will prevent infinite loops
+  push:
+    branches: [ci/auto-build]
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
   workflow_dispatch:
     inputs:
       build_type:
