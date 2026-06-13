@@ -11,19 +11,36 @@ on:
         options:
           - Debug
           - Release
-      platform:
-        description: 'Target platform'
-        required: true
-        default: 'all'
-        type: choice
-        options:
-          - all
-          - linux
-          - macos
-          - android
-          - ios
-          - iossimulator
-          - windows
+      build_linux:
+        description: 'Build Linux'
+        required: false
+        type: boolean
+        default: true
+      build_macos:
+        description: 'Build macOS'
+        required: false
+        type: boolean
+        default: true
+      build_windows:
+        description: 'Build Windows'
+        required: false
+        type: boolean
+        default: true
+      build_android:
+        description: 'Build Android'
+        required: false
+        type: boolean
+        default: true
+      build_ios:
+        description: 'Build iOS'
+        required: false
+        type: boolean
+        default: true
+      build_iossimulator:
+        description: 'Build iOS Simulator'
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -35,10 +52,7 @@ concurrency:
 jobs:
   build-linux:
     runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'push' ||
-      github.event.inputs.platform == 'all' ||
-      github.event.inputs.platform == 'linux'
+    if: github.event.inputs.build_linux == 'true'
     steps:
       - name: Checkout MonoSDK
         uses: actions/checkout@v4
@@ -83,10 +97,7 @@ jobs:
 
   build-windows:
     runs-on: windows-2022
-    if: |
-      github.event_name == 'push' ||
-      github.event.inputs.platform == 'all' ||
-      github.event.inputs.platform == 'windows'
+    if: github.event.inputs.build_windows == 'true'
     steps:
       - name: Checkout MonoSDK
         uses: actions/checkout@v4
@@ -129,10 +140,7 @@ jobs:
 
   build-macos:
     runs-on: macos-26
-    if: |
-      github.event_name == 'push' ||
-      github.event.inputs.platform == 'all' ||
-      github.event.inputs.platform == 'macos'
+    if: github.event.inputs.build_macos == 'true'
     steps:
       - name: Checkout MonoSDK
         uses: actions/checkout@v4
@@ -172,10 +180,7 @@ jobs:
 
   build-ios:
     runs-on: macos-26
-    if: |
-      github.event_name == 'push' ||
-      github.event.inputs.platform == 'all' ||
-      github.event.inputs.platform == 'ios'
+    if: github.event.inputs.build_ios == 'true'
     steps:
       - name: Checkout MonoSDK
         uses: actions/checkout@v4
@@ -219,10 +224,7 @@ jobs:
 
   build-iossimulator:
     runs-on: macos-26
-    if: |
-      github.event_name == 'push' ||
-      github.event.inputs.platform == 'all' ||
-      github.event.inputs.platform == 'iossimulator'
+    if: github.event.inputs.build_iossimulator == 'true'
     steps:
       - name: Checkout MonoSDK
         uses: actions/checkout@v4
@@ -266,10 +268,7 @@ jobs:
 
   build-android:
     runs-on: macos-26
-    if: |
-      github.event_name == 'push' ||
-      github.event.inputs.platform == 'all' ||
-      github.event.inputs.platform == 'android'
+    if: github.event.inputs.build_android == 'true'
     steps:
       - name: Checkout MonoSDK
         uses: actions/checkout@v4
