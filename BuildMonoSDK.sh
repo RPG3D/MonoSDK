@@ -150,14 +150,37 @@ esac
 rm -rf "$DEST"
 mkdir -p "$DEST"
 
-cp -Rf "$SRC_ARTIFACTS/obj/mono/$MONO_TRIPLE/out/include/mono-2.0/" "$DEST/include"
-cp -Rf "$SRC_ARTIFACTS/obj/mono/$MONO_TRIPLE/out/lib/"              "$DEST/lib"
-# out/bin/ only exists for macOS (contains mono-sgen); iOS/Android have no bin/.
-if [[ -d "$SRC_ARTIFACTS/obj/mono/$MONO_TRIPLE/out/bin" ]]; then
-    cp -Rf "$SRC_ARTIFACTS/obj/mono/$MONO_TRIPLE/out/bin/" "$DEST/bin"
+# include: strip mono-2.0/ prefix, land files directly in $DEST/include/
+cp -Rf "$SRC_ARTIFACTS/obj/mono/$MONO_TRIPLE/out/include/mono-2.0/." "$DEST/include/"
+
+# lib: flatten extra nesting if dotnet/runtime output has lib/lib/ structure
+if [[ -d "$SRC_ARTIFACTS/obj/mono/$MONO_TRIPLE/out/lib/lib" ]]; then
+    cp -Rf "$SRC_ARTIFACTS/obj/mono/$MONO_TRIPLE/out/lib/lib/." "$DEST/lib/"
+else
+    cp -Rf "$SRC_ARTIFACTS/obj/mono/$MONO_TRIPLE/out/lib/."   "$DEST/lib/"
 fi
-cp -Rf "$SRC_ARTIFACTS/bin/runtime/$RUNTIME_TFM/"                   "$DEST/runtime"
-cp -Rf "$SRC_ARTIFACTS/bin/mono/$MONO_TRIPLE/IL/"                   "$DEST/runtime"
+
+# bin: only exists for macOS (mono-sgen); iOS/Android/Linux may not have it
+if [[ -d "$SRC_ARTIFACTS/obj/mono/$MONO_TRIPLE/out/bin" ]]; then
+    cp -Rf "$SRC_ARTIFACTS/obj/mono/$MONO_TRIPLE/out/bin/." "$DEST/bin/"
+fi
+
+# runtime: flatten extra nesting if bin/runtime/<TFM>/ has subdirectory
+if [[ -d "$SRC_ARTIFACTS/bin/runtime/$RUNTIME_TFM" ]]; then
+    # Check if $RUNTIME_TFM/ itself contains an extra nesting layer
+    SUBDIR=$(find "$SRC_ARTIFACTS/bin/runtime/$RUNTIME_TFM" -maxdepth 1 -type d ! -path "$SRC_ARTIFACTS/bin/runtime/$RUNTIME_TFM" | head -1)
+    if [[ -n "$SUBDIR" && $(find "$SRC_ARTIFACTS/bin/runtime/$RUNTIME_TFM" -maxdepth 1 -type f | wc -l) -eq 0 ]]; then
+        # Extra nesting detected: copy from the subdirectory
+        cp -Rf "$SUBDIR/." "$DEST/runtime/"
+    else
+        cp -Rf "$SRC_ARTIFACTS/bin/runtime/$RUNTIME_TFM/." "$DEST/runtime/"
+    fi
+fi
+
+# IL: copy IL assemblies
+if [[ -d "$SRC_ARTIFACTS/bin/mono/$MONO_TRIPLE/IL" ]]; then
+    cp -Rf "$SRC_ARTIFACTS/bin/mono/$MONO_TRIPLE/IL/." "$DEST/runtime/"
+fi
 
 # iOS/IOSSimulator: copy native interop libs from bin/native/<TFM>/.
 # These are NOT in obj/mono/<TRIPLE>/out/lib/ and must be copied separately.
