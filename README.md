@@ -11,15 +11,15 @@ Mono runtime SDK for [UnrealSharp](https://github.com/RPG3D/UnrealSharp). This r
 ## Build from Source
 
 ```bash
-# Clone dotnet/runtime
-git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git
+# Clone dotnet/runtime (~/dotnet-runtime works on Windows Git Bash / WSL too)
+git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git ~/dotnet-runtime
 
 # macOS / Linux / iOS / Android
 ./BuildMonoSDK.sh ~/dotnet-runtime <platform> <build-type>
 # platform: macos | android | ios | iossimulator
 
 # Windows
-BuildMonoSDK.bat C:\dotnet-runtime
+BuildMonoSDK.bat ~/dotnet-runtime
 ```
 
 Prerequisites: Visual Studio 2022 (Windows), Xcode (macOS/iOS), Android NDK (Android), CMake + Ninja.

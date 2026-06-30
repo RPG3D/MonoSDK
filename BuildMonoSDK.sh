@@ -208,7 +208,7 @@ if [[ -d "$SRC_ARTIFACTS/bin/runtime/$RUNTIME_TFM" ]]; then
     cd "$SRC_ARTIFACTS/bin/runtime/$RUNTIME_TFM"
     cp -Rf . "$DEST/runtime/" 2>/dev/null || true
     # Flatten: if $RUNTIME_TFM/ itself got nested, fix it
-    local NESTED=$(find "$DEST/runtime" -maxdepth 1 -type d ! -path "$DEST/runtime" | head -1)
+    NESTED=$(find "$DEST/runtime" -maxdepth 1 -type d ! -path "$DEST/runtime" | head -1)
     if [[ -n "$NESTED" && $(find "$DEST/runtime" -maxdepth 1 -type f | wc -l) -eq 0 ]]; then
         mv "$NESTED/"* "$DEST/runtime/" 2>/dev/null || true
         rm -rf "$NESTED"

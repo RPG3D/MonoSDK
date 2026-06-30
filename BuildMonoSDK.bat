@@ -39,7 +39,7 @@ rem -- Build -------------------------------------------------------------------
 cd /d "%DOTNET_SRC%"
 
 echo ^>^>^> Building Mono + libs for Windows (x64)...
-call build.cmd mono+libs
+call "%DOTNET_SRC%\build.cmd" mono+libs
 if errorlevel 1 (
     echo Error: build failed. >&2
     exit /b 1
@@ -67,6 +67,20 @@ xcopy /e /i /y "%SRC_ARTIFACTS%\obj\mono\%MONO_TRIPLE%\out\lib\"              "%
 xcopy /e /i /y "%SRC_ARTIFACTS%\obj\mono\%MONO_TRIPLE%\out\bin\"              "%DEST%\bin\"
 xcopy /e /i /y "%SRC_ARTIFACTS%\bin\runtime\%RUNTIME_TFM%\"                   "%DEST%\runtime\"
 xcopy /e /i /y "%SRC_ARTIFACTS%\bin\mono\%MONO_TRIPLE%\IL\"                   "%DEST%\runtime\"
+
+rem -- Archive symbol files (.pdb) -------------------------------------------------
+rem Native symbols ship in a PDB/ subdirectory next to their DLLs (lib/PDB/, bin/PDB/).
+rem Debuggers only auto-load a .pdb that sits BESIDE its DLL, so flatten the native PDBs
+rem out of PDB/ into the DLL directory. Without this, a Mono/coreclr crash shows addresses
+rem but no source lines even though the .pdb exists. Managed BCL .pdb are already flat
+rem in runtime/ (copied above), no action needed there.
+echo ^>^>^> Archiving native symbol files (.pdb)...
+if exist "%SRC_ARTIFACTS%\obj\mono\%MONO_TRIPLE%\out\lib\PDB\" (
+    copy /y "%SRC_ARTIFACTS%\obj\mono\%MONO_TRIPLE%\out\lib\PDB\*.pdb" "%DEST%\lib\" >nul
+)
+if exist "%SRC_ARTIFACTS%\obj\mono\%MONO_TRIPLE%\out\bin\PDB\" (
+    copy /y "%SRC_ARTIFACTS%\obj\mono\%MONO_TRIPLE%\out\bin\PDB\*.pdb" "%DEST%\bin\" >nul
+)
 
 rem Update shared include\ (mono headers are platform-independent)
 if exist "%SDK_DIR%\include" rmdir /s /q "%SDK_DIR%\include"
