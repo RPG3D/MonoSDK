@@ -4,21 +4,23 @@ rem Build Mono runtime + libs from dotnet/runtime source, then copy artifacts
 rem into this SDK repository's platform subdirectory (Win64).
 rem
 rem Usage:
-rem   BuildMonoSDK.bat <dotnet-src-dir>
+rem   BuildMonoSDK.bat <dotnet-src-dir> [build-type]
 rem
 rem Arguments:
 rem   dotnet-src-dir   Path to the dotnet/runtime repository root.
 rem                    Platform is always Win64 on Windows.
+rem   build-type       Debug (default) | Release
 rem
 rem Example:
 rem   BuildMonoSDK.bat C:\Code\DotNet
+rem   BuildMonoSDK.bat C:\Code\DotNet Release
 
 setlocal enabledelayedexpansion
 
 rem -- Arguments -------------------------------------------------------------------
 if "%~1"=="" (
     echo Error: dotnet source directory is required. >&2
-    echo Usage: %~nx0 ^<dotnet-src-dir^> >&2
+    echo Usage: %~nx0 ^<dotnet-src-dir^> [build-type] >&2
     exit /b 1
 )
 
@@ -26,20 +28,33 @@ set "DOTNET_SRC=%~f1"
 set "SDK_DIR=%~dp0"
 rem Remove trailing backslash from SDK_DIR
 if "%SDK_DIR:~-1%"=="\" set "SDK_DIR=%SDK_DIR:~0,-1%"
+
+rem Build type: Debug (default) or Release
+set "BUILD_TYPE_RAW=%~2"
+if "%BUILD_TYPE_RAW%"=="" set "BUILD_TYPE_RAW=Debug"
+echo %BUILD_TYPE_RAW% | findstr /i "Debug Release" >nul
+if errorlevel 1 (
+    echo Error: unknown build-type '%BUILD_TYPE_RAW%'. Use Debug or Release. >&2
+    exit /b 1
+)
+rem Normalize to title-case (Debug / Release)
 set "BUILD_TYPE=Debug"
+if /i "%BUILD_TYPE_RAW%"=="Release" set "BUILD_TYPE=Release"
+
 set "PLATFORM=Win64"
 
 echo === BuildMonoSDK ===
-echo   Source  : %DOTNET_SRC%
-echo   Platform: %PLATFORM%
-echo   SDK dir : %SDK_DIR%
+echo   Source    : %DOTNET_SRC%
+echo   Platform  : %PLATFORM%
+echo   Build type: %BUILD_TYPE%
+echo   SDK dir   : %SDK_DIR%
 echo.
 
 rem -- Build -----------------------------------------------------------------------
 cd /d "%DOTNET_SRC%"
 
-echo ^>^>^> Building Mono + libs for Windows (x64)...
-call "%DOTNET_SRC%\build.cmd" mono+libs
+echo ^>^>^> Building Mono + libs for Windows (x64, %BUILD_TYPE%)...
+call "%DOTNET_SRC%\build.cmd" mono+libs -configuration %BUILD_TYPE%
 if errorlevel 1 (
     echo Error: build failed. >&2
     exit /b 1
@@ -99,7 +114,7 @@ for /f "delims=" %%r in ('git -C "%DOTNET_SRC%" remote get-url origin 2^>nul')  
     echo.
     echo Platform: Windows ^(x64^)
     echo Build type: %BUILD_TYPE%
-    echo Build command: build.cmd mono+libs
+    echo Build command: build.cmd mono+libs -configuration %BUILD_TYPE%
 ) > "%DEST%\VERSION.txt"
 
 echo ^>^>^> Done. SDK updated at: %DEST%

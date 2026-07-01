@@ -68,15 +68,10 @@ jobs:
         run: |
           git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
 
-      - name: Build Mono + libs
+      - name: Build MonoSDK (Linux)
         run: |
-          cd dotnet-runtime
-          ./build.sh mono+libs -configuration ${{ github.event.inputs.build_type || 'Debug' }}
-
-      - name: Copy artifacts to SDK
-        run: |
-          chmod +x CopySDKFromSrc.sh
-          ./CopySDKFromSrc.sh $(pwd)/dotnet-runtime linux ${{ github.event.inputs.build_type || 'Debug' }}
+          chmod +x BuildMonoSDK.sh
+          ./BuildMonoSDK.sh $(pwd)/dotnet-runtime linux ${{ github.event.inputs.build_type || 'Debug' }}
 
       - name: Set artifact variables
         id: artifact
@@ -109,15 +104,9 @@ jobs:
           git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
         shell: bash
 
-      - name: Build Mono + libs
+      - name: Build MonoSDK (Windows)
         run: |
-          cd dotnet-runtime
-          build.cmd mono+libs -configuration ${{ github.event.inputs.build_type || 'Debug' }}
-        shell: cmd
-
-      - name: Copy artifacts to SDK
-        run: |
-          CopySDKFromSrc.bat %CD%\dotnet-runtime ${{ github.event.inputs.build_type || 'Debug' }}
+          BuildMonoSDK.bat %CD%\dotnet-runtime ${{ github.event.inputs.build_type || 'Debug' }}
         shell: cmd
 
       - name: Set artifact variables
@@ -151,15 +140,10 @@ jobs:
         run: |
           git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
 
-      - name: Build Mono + libs
+      - name: Build MonoSDK (macOS)
         run: |
-          cd dotnet-runtime
-          ./build.sh mono+libs -configuration ${{ github.event.inputs.build_type || 'Debug' }}
-
-      - name: Copy artifacts to SDK
-        run: |
-          chmod +x CopySDKFromSrc.sh
-          ./CopySDKFromSrc.sh $(pwd)/dotnet-runtime macos ${{ github.event.inputs.build_type || 'Debug' }}
+          chmod +x BuildMonoSDK.sh
+          ./BuildMonoSDK.sh $(pwd)/dotnet-runtime macos ${{ github.event.inputs.build_type || 'Debug' }}
 
       - name: Set artifact variables
         id: artifact
@@ -191,21 +175,12 @@ jobs:
         run: |
           git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
 
-      - name: Build Mono + libs for iOS
+      - name: Build MonoSDK (iOS)
         run: |
-          cd dotnet-runtime
-          ./build.sh mono+libs -os ios -configuration ${{ github.event.inputs.build_type || 'Debug' }}
+          chmod +x BuildMonoSDK.sh
+          ./BuildMonoSDK.sh $(pwd)/dotnet-runtime ios ${{ github.event.inputs.build_type || 'Debug' }}
 
-      - name: Copy artifacts to SDK (iOS)
-        run: |
-          chmod +x CopySDKFromSrc.sh
-          ./CopySDKFromSrc.sh $(pwd)/dotnet-runtime ios ${{ github.event.inputs.build_type || 'Debug' }}
-
-      - name: Build Mono framework (iOS only)
-        run: |
-          ./MakeMonoFramework.sh ios $(pwd)/IOS
-
-      - name: Set artifact variables (iOS)
+      - name: Set artifact variables
         id: artifact
         run: |
           if [ "${{ github.event.inputs.build_type || 'Debug' }}" == "Release" ]; then
@@ -235,21 +210,12 @@ jobs:
         run: |
           git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
 
-      - name: Build Mono + libs for iOS Simulator
+      - name: Build MonoSDK (iOS Simulator)
         run: |
-          cd dotnet-runtime
-          ./build.sh mono+libs -os iossimulator -configuration ${{ github.event.inputs.build_type || 'Debug' }}
+          chmod +x BuildMonoSDK.sh
+          ./BuildMonoSDK.sh $(pwd)/dotnet-runtime iossimulator ${{ github.event.inputs.build_type || 'Debug' }}
 
-      - name: Copy artifacts to SDK (iOS Simulator)
-        run: |
-          chmod +x CopySDKFromSrc.sh
-          ./CopySDKFromSrc.sh $(pwd)/dotnet-runtime iossimulator ${{ github.event.inputs.build_type || 'Debug' }}
-
-      - name: Build Mono framework (iOS Simulator only)
-        run: |
-          ./MakeMonoFramework.sh iossimulator $(pwd)/IOSSimulator
-
-      - name: Set artifact variables (iOS Simulator)
+      - name: Set artifact variables
         id: artifact
         run: |
           if [ "${{ github.event.inputs.build_type || 'Debug' }}" == "Release" ]; then
@@ -282,15 +248,10 @@ jobs:
         run: |
           git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
 
-      - name: Build Mono + libs for Android
+      - name: Build MonoSDK (Android)
         run: |
-          cd dotnet-runtime
-          ./build.sh mono+libs -os android -arch arm64 -configuration ${{ github.event.inputs.build_type || 'Debug' }}
-
-      - name: Copy artifacts to SDK
-        run: |
-          chmod +x CopySDKFromSrc.sh
-          ./CopySDKFromSrc.sh $(pwd)/dotnet-runtime android ${{ github.event.inputs.build_type || 'Debug' }}
+          chmod +x BuildMonoSDK.sh
+          ./BuildMonoSDK.sh $(pwd)/dotnet-runtime android ${{ github.event.inputs.build_type || 'Debug' }}
 
       - name: Set artifact variables
         id: artifact
