@@ -21,6 +21,7 @@ out/
 # Ignore temporary files
 *.tmp
 *.log
+*.bak*
 *.swp
 *.swo
 *~
