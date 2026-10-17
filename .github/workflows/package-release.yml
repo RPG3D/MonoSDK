@@ -48,168 +48,55 @@ jobs:
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
 
-      - name: Download Linux SDK artifact
+      - name: Download platform SDK artifacts
         run: |
           BUILD_TYPE="${{ github.event.inputs.build_type || 'Debug' }}"
-          echo ">>> Downloading Linux SDK artifact (${BUILD_TYPE})..."
-          if [ "$BUILD_TYPE" == "Release" ]; then
-            ARTIFACT_NAME="MonoSDK-Linux-x64-Release"
-          else
-            ARTIFACT_NAME="MonoSDK-Linux-x64-Debug"
-          fi
           RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-all.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
-          if [ -n "$RUN_ID" ]; then
-            # Clean target directory before downloading
-            rm -rf Linux/
-            mkdir -p Linux
-            gh run download $RUN_ID --repo ${{ github.repository }} --name "$ARTIFACT_NAME" --dir Linux/
-            echo "✅ Linux SDK downloaded (${BUILD_TYPE})"
-          else
-            echo "⚠️ Linux SDK artifact not found (${BUILD_TYPE})"
+          if [ -z "$RUN_ID" ]; then
+            echo "⚠️ No successful build-all.yml run found"
           fi
-          ls -la Linux/ 2>/dev/null || echo "❌ Linux/ not downloaded"
 
-      - name: Download macOS SDK artifacts
-        run: |
-          BUILD_TYPE="${{ github.event.inputs.build_type || 'Debug' }}"
-          echo ">>> Downloading macOS SDK artifacts (${BUILD_TYPE})..."
-          RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-all.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
-          # macOS ships one artifact per arch; keep them side by side as Mac/<arch>.
-          rm -rf Mac/
-          for ARCH in arm64 x64; do
-            ARTIFACT_NAME="MonoSDK-macOS-${ARCH}-${BUILD_TYPE}"
-            mkdir -p "Mac/${ARCH}"
-            if [ -n "$RUN_ID" ]; then
-              if gh run download $RUN_ID --repo ${{ github.repository }} --name "$ARTIFACT_NAME" --dir "Mac/${ARCH}"; then
-                echo "✅ macOS ${ARCH} SDK downloaded (${BUILD_TYPE})"
-              else
-                echo "⚠️ macOS ${ARCH} SDK artifact not found (${BUILD_TYPE})"
-              fi
+          # <Platform>/<arch>:<artifact base name> -- must match the uploads in build-all.yml.
+          # Every platform uses the same depth, so this table is the only per-platform data.
+          ENTRIES="
+          Linux/x64:MonoSDK-Linux-x64
+          Win64/x64:MonoSDK-Windows-x64
+          Mac/arm64:MonoSDK-macOS-arm64
+          Mac/x64:MonoSDK-macOS-x64
+          Android/arm64:MonoSDK-Android-arm64
+          IOS/arm64:MonoSDK-iOS-arm64
+          IOSSimulator/arm64:MonoSDK-iOS-Simulator-arm64
+          IOSSimulator/x64:MonoSDK-iOS-Simulator-x64
+          "
+
+          for ENTRY in $ENTRIES; do
+            DIR="${ENTRY%%:*}"
+            BASE="${ENTRY##*:}"
+            ARTIFACT_NAME="${BASE}-${BUILD_TYPE}"
+            rm -rf "$DIR"
+            mkdir -p "$DIR"
+            if [ -n "$RUN_ID" ] && gh run download "$RUN_ID" --repo ${{ github.repository }} \
+                 --name "$ARTIFACT_NAME" --dir "$DIR"; then
+              echo "✅ $DIR  <- $ARTIFACT_NAME"
             else
-              echo "⚠️ No successful build-all.yml run found"
+              echo "⚠️ $DIR  <- $ARTIFACT_NAME (artifact unavailable)"
             fi
-            ls -la "Mac/${ARCH}" 2>/dev/null || echo "❌ Mac/${ARCH} not downloaded"
-          done
-          # mkdir -p above leaves the directory behind when a download fails. Prune the
-          # empties: an empty Mac/<arch>/ would be shipped in the zip, and UBT treats a
-          # present-but-empty SDK dir as usable, turning a clear "SDK missing" error into
-          # an obscure missing-dylib link failure.
-          for ARCH in arm64 x64; do
-            if [ -d "Mac/${ARCH}" ] && [ -z "$(ls -A "Mac/${ARCH}")" ]; then
-              rmdir "Mac/${ARCH}"
-              echo "🧹 Pruned empty Mac/${ARCH} (artifact unavailable)"
-            fi
-          done
-
-      - name: Download Windows SDK artifact
-        run: |
-          BUILD_TYPE="${{ github.event.inputs.build_type || 'Debug' }}"
-          echo ">>> Downloading Windows SDK artifact (${BUILD_TYPE})..."
-          if [ "$BUILD_TYPE" == "Release" ]; then
-            ARTIFACT_NAME="MonoSDK-Windows-x64-Release"
-          else
-            ARTIFACT_NAME="MonoSDK-Windows-x64-Debug"
-          fi
-          RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-all.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
-          if [ -n "$RUN_ID" ]; then
-            # Clean target directory before downloading
-            rm -rf Win64/
-            mkdir -p Win64
-            gh run download $RUN_ID --repo ${{ github.repository }} --name "$ARTIFACT_NAME" --dir Win64/
-            echo "✅ Windows SDK downloaded (${BUILD_TYPE})"
-          else
-            echo "⚠️ Windows SDK artifact not found (${BUILD_TYPE})"
-          fi
-          ls -la Win64/ 2>/dev/null || echo "❌ Win64/ not downloaded"
-
-      - name: Download Android SDK artifact
-        run: |
-          BUILD_TYPE="${{ github.event.inputs.build_type || 'Debug' }}"
-          echo ">>> Downloading Android SDK artifact (${BUILD_TYPE})..."
-          if [ "$BUILD_TYPE" == "Release" ]; then
-            ARTIFACT_NAME="MonoSDK-Android-arm64-Release"
-          else
-            ARTIFACT_NAME="MonoSDK-Android-arm64-Debug"
-          fi
-          RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-all.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
-          if [ -n "$RUN_ID" ]; then
-            # Clean target directory before downloading
-            rm -rf Android/
-            mkdir -p Android
-            gh run download $RUN_ID --repo ${{ github.repository }} --name "$ARTIFACT_NAME" --dir Android/
-            echo "✅ Android SDK downloaded (${BUILD_TYPE})"
-          else
-            echo "⚠️ Android SDK artifact not found (${BUILD_TYPE})"
-          fi
-          ls -la Android/ 2>/dev/null || echo "❌ Android/ not downloaded"
-
-      - name: Download iOS SDK artifact
-        run: |
-          BUILD_TYPE="${{ github.event.inputs.build_type || 'Debug' }}"
-          echo ">>> Downloading iOS SDK artifact (${BUILD_TYPE})..."
-          if [ "$BUILD_TYPE" == "Release" ]; then
-            ARTIFACT_NAME="MonoSDK-iOS-arm64-Release"
-          else
-            ARTIFACT_NAME="MonoSDK-iOS-arm64-Debug"
-          fi
-          RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-all.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
-          if [ -n "$RUN_ID" ]; then
-            # Clean target directory before downloading
-            rm -rf IOS/
-            mkdir -p IOS
-            gh run download $RUN_ID --repo ${{ github.repository }} --name "$ARTIFACT_NAME" --dir IOS/
-            echo "✅ iOS SDK downloaded (${BUILD_TYPE})"
-          else
-            echo "⚠️ iOS SDK artifact not found (${BUILD_TYPE})"
-          fi
-          ls -la IOS/ 2>/dev/null || echo "❌ IOS/ not downloaded"
-
-      - name: Download iOS Simulator SDK artifacts
-        run: |
-          BUILD_TYPE="${{ github.event.inputs.build_type || 'Debug' }}"
-          echo ">>> Downloading iOS Simulator SDK artifacts (${BUILD_TYPE})..."
-          RUN_ID=$(gh run list --repo ${{ github.repository }} --workflow=build-all.yml --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
-          # Simulator ships one artifact per arch; keep them side by side as IOSSimulator/<arch>.
-          rm -rf IOSSimulator/
-          for ARCH in arm64 x64; do
-            ARTIFACT_NAME="MonoSDK-iOS-Simulator-${ARCH}-${BUILD_TYPE}"
-            mkdir -p "IOSSimulator/${ARCH}"
-            if [ -n "$RUN_ID" ]; then
-              if gh run download $RUN_ID --repo ${{ github.repository }} --name "$ARTIFACT_NAME" --dir "IOSSimulator/${ARCH}"; then
-                echo "✅ iOS Simulator ${ARCH} SDK downloaded (${BUILD_TYPE})"
-              else
-                echo "⚠️ iOS Simulator ${ARCH} SDK artifact not found (${BUILD_TYPE})"
-              fi
-            else
-              echo "⚠️ No successful build-all.yml run found"
-            fi
-            ls -la "IOSSimulator/${ARCH}" 2>/dev/null || echo "❌ IOSSimulator/${ARCH} not downloaded"
-          done
-          # See the macOS step: drop empty arch dirs left by a failed download.
-          for ARCH in arm64 x64; do
-            if [ -d "IOSSimulator/${ARCH}" ] && [ -z "$(ls -A "IOSSimulator/${ARCH}")" ]; then
-              rmdir "IOSSimulator/${ARCH}"
-              echo "🧹 Pruned empty IOSSimulator/${ARCH} (artifact unavailable)"
+            # A failed download leaves the directory created above behind. Prune empties so
+            # the zip never ships a present-but-empty SDK dir that UBT would accept.
+            if [ -d "$DIR" ] && [ -z "$(ls -A "$DIR")" ]; then
+              rmdir "$DIR"
+              echo "🧹 Pruned empty $DIR"
             fi
           done
 
       - name: Verify downloaded SDKs
         run: |
           echo ">>> Verifying downloaded SDKs..."
-          echo "=== Linux ==="
-          ls -la Linux/ 2>/dev/null || echo "❌ Linux not available"
-          echo "=== macOS (arm64 / x64) ==="
-          ls -la Mac/arm64/ 2>/dev/null || echo "❌ Mac/arm64 not available"
-          ls -la Mac/x64/ 2>/dev/null || echo "❌ Mac/x64 not available"
-          echo "=== Windows ==="
-          ls -la Win64/ 2>/dev/null || echo "❌ Windows not available"
-          echo "=== Android ==="
-          ls -la Android/ 2>/dev/null || echo "❌ Android not available"
-          echo "=== iOS ==="
-          ls -la IOS/ 2>/dev/null || echo "❌ iOS not available"
-          echo "=== iOS Simulator (arm64 / x64) ==="
-          ls -la IOSSimulator/arm64/ 2>/dev/null || echo "❌ IOSSimulator/arm64 not available"
-          ls -la IOSSimulator/x64/ 2>/dev/null || echo "❌ IOSSimulator/x64 not available"
+          for DIR in Linux/x64 Win64/x64 Mac/arm64 Mac/x64 Android/arm64 \
+                     IOS/arm64 IOSSimulator/arm64 IOSSimulator/x64; do
+            echo "=== $DIR ==="
+            ls -la "$DIR/" 2>/dev/null || echo "❌ $DIR not available"
+          done
 
       - name: Create package directory
         run: |
@@ -248,7 +135,7 @@ jobs:
           # Copy include/ from any platform that has it. The shared include/ is
           # arch-independent, so Linux (flat) or any Mac/<arch> (arch-qualified) works.
           INCLUDE_SRC=""
-          for CANDIDATE in Linux/include Mac/arm64/include Mac/x64/include IOS/include; do
+          for CANDIDATE in Linux/x64/include Mac/arm64/include Mac/x64/include IOS/arm64/include; do
             if [ -d "$CANDIDATE" ]; then
               INCLUDE_SRC="$CANDIDATE"
               break
@@ -302,10 +189,10 @@ jobs:
             - ✅ Linux (x64)
 
             ## Layout
-            - Single-architecture platforms are flat: `Win64/`, `Android/`, `IOS/`, `Linux/`
-            - Multi-architecture platforms are split per arch: `Mac/arm64/`, `Mac/x64/`,
-              `IOSSimulator/arm64/`, `IOSSimulator/x64/`
-            - UBT picks the directory matching the target architecture
+            Every platform uses the same depth, `<Platform>/<arch>/`:
+            `Win64/x64/`, `Android/arm64/`, `IOS/arm64/`, `Linux/x64/`,
+            `Mac/arm64/`, `Mac/x64/`, `IOSSimulator/arm64/`, `IOSSimulator/x64/`
+            - UBT resolves `<Platform>/<arch>/` for the target
               (`MonoSDK.Build.cs` → `ResolveMonoPlatformDir`)
 
             ## Installation

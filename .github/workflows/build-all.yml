@@ -86,7 +86,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.artifact.outputs.name }}
-          path: Linux/
+          path: Linux/x64/
           retention-days: 30
           if-no-files-found: error
 
@@ -123,7 +123,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.artifact.outputs.name }}
-          path: Win64/
+          path: Win64/x64/
           retention-days: 30
           if-no-files-found: error
 
@@ -205,7 +205,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.artifact.outputs.name }}
-          path: IOS/
+          path: IOS/arm64/
           retention-days: 30
           if-no-files-found: error
 
@@ -290,6 +290,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.artifact.outputs.name }}
-          path: Android/
+          path: Android/arm64/
           retention-days: 30
           if-no-files-found: error

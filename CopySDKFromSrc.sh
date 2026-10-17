@@ -94,45 +94,51 @@ case "$PLATFORM/$ARCH" in
         MONO_TRIPLE="osx.x64.$BUILD_TYPE"
         RUNTIME_TFM="net10.0-osx-$BUILD_TYPE-x64"
         NATIVE_TFM="net10.0-osx-$BUILD_TYPE-x64"
-        DEST="$SDK_DIR/Mac/x64"
         ;;
     macos/arm64)
         MONO_TRIPLE="osx.arm64.$BUILD_TYPE"
         RUNTIME_TFM="net10.0-osx-$BUILD_TYPE-arm64"
         NATIVE_TFM="net10.0-osx-$BUILD_TYPE-arm64"
-        DEST="$SDK_DIR/Mac/arm64"
         ;;
     ios/arm64)
         MONO_TRIPLE="ios.arm64.$BUILD_TYPE"
         RUNTIME_TFM="net10.0-ios-$BUILD_TYPE-arm64"
         NATIVE_TFM="net10.0-ios-$BUILD_TYPE-arm64"
-        DEST="$SDK_DIR/IOS"
         ;;
     iossimulator/x64)
         MONO_TRIPLE="iossimulator.x64.$BUILD_TYPE"
         RUNTIME_TFM="net10.0-iossimulator-$BUILD_TYPE-x64"
         NATIVE_TFM="net10.0-iossimulator-$BUILD_TYPE-x64"
-        DEST="$SDK_DIR/IOSSimulator/x64"
         ;;
     iossimulator/arm64)
         MONO_TRIPLE="iossimulator.arm64.$BUILD_TYPE"
         RUNTIME_TFM="net10.0-iossimulator-$BUILD_TYPE-arm64"
         NATIVE_TFM="net10.0-iossimulator-$BUILD_TYPE-arm64"
-        DEST="$SDK_DIR/IOSSimulator/arm64"
         ;;
     android/arm64)
         MONO_TRIPLE="android.arm64.$BUILD_TYPE"
         RUNTIME_TFM="net10.0-android-$BUILD_TYPE-arm64"
         NATIVE_TFM=""
-        DEST="$SDK_DIR/Android"
         ;;
     linux/x64)
         MONO_TRIPLE="linux.x64.$BUILD_TYPE"
         RUNTIME_TFM="net10.0-linux-$BUILD_TYPE-x64"
         NATIVE_TFM=""
-        DEST="$SDK_DIR/Linux"
         ;;
 esac
+
+# Destination directory. Every platform uses the same depth -- <Platform>/<arch>/ --
+# so the layout rule is one line instead of a per-platform special case:
+#   Win64/x64  Android/arm64  IOS/arm64  Linux/x64
+#   Mac/{x64,arm64}  IOSSimulator/{arm64,x64}
+case "$PLATFORM" in
+    macos)        PLATFORM_DIR="Mac" ;;
+    ios)          PLATFORM_DIR="IOS" ;;
+    iossimulator) PLATFORM_DIR="IOSSimulator" ;;
+    android)      PLATFORM_DIR="Android" ;;
+    linux)        PLATFORM_DIR="Linux" ;;
+esac
+DEST="$SDK_DIR/$PLATFORM_DIR/$ARCH"
 
 echo ">>> Copying artifacts into SDK directory..."
 rm -rf "$DEST"

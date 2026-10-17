@@ -10,19 +10,19 @@ Mono runtime SDK for [UnrealSharp](https://github.com/RPG3D/UnrealSharp). This r
 
 ## Directory layout
 
-Platforms that ship a single architecture keep a flat directory. Platforms that ship more than one are split per architecture, so both can coexist and UBT can pick the one matching the target:
+Every platform uses the same depth — `<Platform>/<arch>/` — so there is one rule for all of them and a platform can gain an architecture without any consumer changing:
 
 ```
-Mac/arm64/          Mac/x64/            # macOS: both architectures
-IOSSimulator/arm64/ IOSSimulator/x64/   # iOS Simulator: both architectures
-IOS/                                    # iOS device: arm64 only
-Android/                                # arm64 only
-Win64/                                  # x64 only
-Linux/                                  # x64 only
-include/                                # shared Mono C headers
+Win64/x64/                                  # Windows
+Android/arm64/                              # Android
+IOS/arm64/                                  # iOS device
+Linux/x64/                                  # Linux
+Mac/arm64/          Mac/x64/                # macOS: both architectures
+IOSSimulator/arm64/ IOSSimulator/x64/       # iOS Simulator: both architectures
+include/                                    # shared Mono C headers
 ```
 
-`MonoSDK.Build.cs` resolves the directory in `ResolveMonoPlatformDir()` from the target architecture. A legacy flat `Mac/` or `IOSSimulator/` directory is still accepted (with a warning), so SDKs downloaded before the arch split keep working.
+Each `<Platform>/<arch>/` holds the same subdirectories: `lib/` (native libraries and interop dylibs), `runtime/` (BCL assemblies), `include/`, plus `bin/` on macOS/Windows and `tools/` on iOS. `MonoSDK.Build.cs` resolves the directory in `ResolveMonoPlatformDir()` from the target platform and architecture. A flat `<Platform>/` directory is still accepted as a fallback, so SDKs downloaded before this layout change keep working.
 
 ## Build from Source
 

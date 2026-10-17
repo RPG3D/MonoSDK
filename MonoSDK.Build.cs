@@ -120,8 +120,10 @@ public class MonoSDK : ModuleRules
 		{
 			PublicDefinitions.Add("UNREALSHARP_MONO=1");
 
-			string monoLib = Path.Combine(monoSdkRoot, "Android", "lib");
-			string monoRuntime = Path.Combine(monoSdkRoot, "Android", "runtime");
+			// Every platform keeps its SDK at <Platform>/<arch>/; Android is arm64-only.
+			string monoPlatformDir = ResolveMonoPlatformDir(monoSdkRoot, "Android", Target.Architecture);
+			string monoLib = Path.Combine(monoPlatformDir, "lib");
+			string monoRuntime = Path.Combine(monoPlatformDir, "runtime");
 
 			PublicIncludePaths.Add(Path.Combine(monoSdkRoot, "include"));
 
@@ -166,17 +168,12 @@ public class MonoSDK : ModuleRules
 			bool bIsSimulator = (Target.Architecture == UnrealArch.IOSSimulator);
 			string platformName = bIsSimulator ? "IOSSimulator" : "IOS";
 
-			// Real-device SDKs are arm64-only and stay flat (IOS/); simulator SDKs are
-			// split per arch (IOSSimulator/arm64, IOSSimulator/x64).
-			string monoPlatformDir;
-			if (bIsSimulator)
-			{
-				monoPlatformDir = ResolveMonoPlatformDir(monoSdkRoot, platformName, GetIOSSimulatorArchName());
-			}
-			else
-			{
-				monoPlatformDir = Path.Combine(monoSdkRoot, platformName);
-			}
+			// Both layouts keep <Platform>/<arch>/: the device is IOS/arm64, the simulator
+			// is IOSSimulator/arm64 (UE 5.7) or IOSSimulator/x64 on engine lines that
+			// expose a simulator architecture.
+			string monoPlatformDir = bIsSimulator
+				? ResolveMonoPlatformDir(monoSdkRoot, platformName, GetIOSSimulatorArchName())
+				: ResolveMonoPlatformDir(monoSdkRoot, platformName, Target.Architecture);
 
 			string monoLib = Path.Combine(monoPlatformDir, "lib");
 
@@ -241,11 +238,13 @@ public class MonoSDK : ModuleRules
 		{
 			PublicDefinitions.Add("UNREALSHARP_MONO=1");
 
-			string monoLib = Path.Combine(monoSdkRoot, "Win64", "lib");
-			string monoRuntime = Path.Combine(monoSdkRoot, "Win64", "runtime");
+			// Every platform keeps its SDK at <Platform>/<arch>/; Win64 is x64-only.
+			string monoPlatformDir = ResolveMonoPlatformDir(monoSdkRoot, "Win64", Target.Architecture);
+			string monoLib = Path.Combine(monoPlatformDir, "lib");
+			string monoRuntime = Path.Combine(monoPlatformDir, "runtime");
 
 			// Win64 has its own include/ (superset: adds jit.h variants not in shared include/)
-			PublicIncludePaths.Add(Path.Combine(monoSdkRoot, "Win64", "include"));
+			PublicIncludePaths.Add(Path.Combine(monoPlatformDir, "include"));
 
 			// Dynamic link: import lib at compile time; coreclr.dll copied to Binaries/Win64/.
 			// Two-argument RuntimeDependencies.Add(dest, src) triggers the build-time copy.
@@ -293,11 +292,11 @@ public class MonoSDK : ModuleRules
 
 	// ── SDK directory resolution ────────────────────────────────────────────────
 	//
-	// Platforms that ship more than one architecture keep one SDK per arch
-	// (Mac/x64, Mac/arm64, IOSSimulator/x64, IOSSimulator/arm64); single-arch
-	// platforms stay flat (Win64/, Android/, IOS/, Linux/). The flat form is also
-	// accepted for Mac/IOSSimulator so an SDK downloaded before the arch split
-	// keeps working.
+	// Every platform keeps its SDK at <Platform>/<arch>/ -- Win64/x64, Android/arm64,
+	// IOS/arm64, Linux/x64, Mac/{x64,arm64}, IOSSimulator/{arm64,x64} -- so one rule
+	// covers all of them and a platform can gain an architecture without touching the
+	// consumers. The pre-arch-split flat form (<Platform>/) is still accepted as a
+	// fallback so an SDK downloaded before the layout change keeps working.
 	//
 	// Throws a BuildException when neither exists: a missing SDK otherwise surfaces
 	// as an obscure linker error, and the fix (run the MonoSDK build workflow, or
