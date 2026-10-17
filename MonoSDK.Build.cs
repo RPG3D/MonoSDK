@@ -70,7 +70,7 @@ public class MonoSDK : ModuleRules
 
 			// Headers come from the shared include/ at the MonoSDK root, sourced from the
 			// Win64 build (the superset -- see BuildMonoSDK.bat).
-			PublicIncludePaths.Add(Path.Combine(monoSdkRoot, "include"));
+			PublicIncludePaths.Add(ResolveMonoIncludeDir(monoSdkRoot, monoPlatformDir));
 
 			// Link libcoreclr.dylib (Mono runtime; named "coreclr" per Microsoft unified naming).
 			// Its install_name is @rpath/libcoreclr.dylib (dotnet/runtime sets MACOSX_RPATH ON),
@@ -127,7 +127,7 @@ public class MonoSDK : ModuleRules
 			string monoLib = Path.Combine(monoPlatformDir, "lib");
 			string monoRuntime = Path.Combine(monoPlatformDir, "runtime");
 
-			PublicIncludePaths.Add(Path.Combine(monoSdkRoot, "include"));
+			PublicIncludePaths.Add(ResolveMonoIncludeDir(monoSdkRoot, monoPlatformDir));
 
 			// Link libmonosgen-2.0.so at compile time (linker -l flag).
 			// All .so files are packaged into APK lib/arm64-v8a/ via MonoSDK_APL.xml.
@@ -179,7 +179,7 @@ public class MonoSDK : ModuleRules
 
 			string monoLib = Path.Combine(monoPlatformDir, "lib");
 
-			PublicIncludePaths.Add(Path.Combine(monoSdkRoot, "include"));
+			PublicIncludePaths.Add(ResolveMonoIncludeDir(monoSdkRoot, monoPlatformDir));
 
 			// CoreLib AOT static lib (REQUIRED: prevents W^X violation at runtime bootstrap)
 			PublicAdditionalLibraries.Add(Path.Combine(monoLib, "System.Private.CoreLib.dll.a"));
@@ -247,7 +247,7 @@ public class MonoSDK : ModuleRules
 
 			// Headers come from the shared include/ at the MonoSDK root, sourced from the
 			// Win64 build (the superset -- see BuildMonoSDK.bat).
-			PublicIncludePaths.Add(Path.Combine(monoSdkRoot, "include"));
+			PublicIncludePaths.Add(ResolveMonoIncludeDir(monoSdkRoot, monoPlatformDir));
 
 			// Dynamic link: import lib at compile time; coreclr.dll copied to Binaries/Win64/.
 			// Two-argument RuntimeDependencies.Add(dest, src) triggers the build-time copy.
@@ -291,6 +291,38 @@ public class MonoSDK : ModuleRules
 				RuntimeDependencies.Add(Path.Combine(managedContentDir, "*.json"), StagedFileType.UFS);
 			}
 		}
+	}
+
+	// ── Mono header resolution ──────────────────────────────────────────────────
+	//
+	// The Mono headers are not per-platform data and are not tracked in git: the Win64
+	// x64 build emits the superset (it adds the jit.h variants the other platforms'
+	// builds omit), BuildMonoSDK.bat refreshes the root include/ for local Windows
+	// builds, and the CI artifact carries it at Win64/x64/include which
+	// package-release.yml copies to the package root. Resolve the root copy first, then
+	// the platform directory (a freshly extracted artifact set where the root copy was
+	// never assembled), and fail with instructions when neither exists.
+	private string ResolveMonoIncludeDir(string monoSdkRoot, string monoPlatformDir)
+	{
+		string RootInclude = Path.Combine(monoSdkRoot, "include");
+		if (Directory.Exists(RootInclude))
+		{
+			return RootInclude;
+		}
+
+		string PlatformInclude = Path.Combine(monoPlatformDir, "include");
+		if (Directory.Exists(PlatformInclude))
+		{
+			Logger.LogWarning("MonoSDK: root include/ not found; using {0}. Run " +
+				"package-release.yml or copy Win64/x64/include to the MonoSDK root.", PlatformInclude);
+			return PlatformInclude;
+		}
+
+		throw new BuildException(
+			$"Mono headers not found. Expected '{RootInclude}' (the shared copy) or '{PlatformInclude}'.\n" +
+			"Populate Source/ThirdParty/MonoSDK by downloading the MonoSDK release zip, which " +
+			"ships include/ at the root, or by extracting the MonoSDK-Windows-x64 artifact and " +
+			"copying Win64/x64/include to Source/ThirdParty/MonoSDK/include.");
 	}
 
 	// ── SDK directory resolution ────────────────────────────────────────────────

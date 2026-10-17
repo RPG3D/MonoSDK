@@ -22,7 +22,7 @@ IOSSimulator/arm64/ IOSSimulator/x64/       # iOS Simulator: both architectures
 include/                                    # shared Mono C headers
 ```
 
-Each `<Platform>/<arch>/` holds `lib/` (native libraries and interop dylibs) and `runtime/` (BCL assemblies), plus `bin/` on macOS/Windows and `tools/` on iOS. The Mono headers live **once** at the MonoSDK root (`include/`) and are sourced from the Win64 x64 build, which emits the superset (it adds the `jit.h` variants the other platforms' builds omit); every platform compiles against that single copy. `MonoSDK.Build.cs` resolves the platform directory in `ResolveMonoPlatformDir()` from the target platform and architecture. A flat `<Platform>/` directory is still accepted as a fallback, so SDKs downloaded before this layout change keep working.
+Each `<Platform>/<arch>/` holds `lib/` (native libraries and interop dylibs) and `runtime/` (BCL assemblies), plus `bin/` on macOS/Windows and `tools/` on iOS. The Mono headers live **once** at the MonoSDK root (`include/`), sourced from the Win64 x64 build, which emits the superset (it adds the `jit.h` variants the other platforms' builds omit); every platform compiles against that single copy. The headers are **not tracked in git** — they ship in the Win64 artifact (`Win64/x64/include`), `package-release.yml` copies them to the package root, and `MonoSDK.Build.cs` falls back to the Win64 copy when the root directory is absent. `MonoSDK.Build.cs` resolves the platform directory in `ResolveMonoPlatformDir()` from the target platform and architecture. A flat `<Platform>/` directory is still accepted as a fallback, so SDKs downloaded before this layout change keep working.
 
 ## Build from Source
 
