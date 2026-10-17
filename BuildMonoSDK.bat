@@ -105,7 +105,11 @@ if exist "%SRC_ARTIFACTS%\obj\mono\%MONO_TRIPLE%\out\bin\PDB\" (
     copy /y "%SRC_ARTIFACTS%\obj\mono\%MONO_TRIPLE%\out\bin\PDB\*.pdb" "%DEST%\bin\" >nul
 )
 
-rem Update shared include\ (mono headers are platform-independent)
+rem Update the shared include\ -- this is the ONLY copy of the Mono headers.
+rem The Win64 build emits the superset (it adds the jit.h variants the other
+rem platforms' builds omit), so BuildMonoSDK.sh does not write headers at all;
+rem every consumer compiles against this directory and package-release.yml
+rem ships it from Win64\x64\include.
 if exist "%SDK_DIR%\include" rmdir /s /q "%SDK_DIR%\include"
 xcopy /e /i /y "%SRC_ARTIFACTS%\obj\mono\%MONO_TRIPLE%\out\include\mono-2.0\" "%SDK_DIR%\include\"
 

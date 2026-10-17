@@ -68,6 +68,8 @@ public class MonoSDK : ModuleRules
 			string monoLib = Path.Combine(monoPlatformDir, "lib");
 			string monoRuntime = Path.Combine(monoPlatformDir, "runtime");
 
+			// Headers come from the shared include/ at the MonoSDK root, sourced from the
+			// Win64 build (the superset -- see BuildMonoSDK.bat).
 			PublicIncludePaths.Add(Path.Combine(monoSdkRoot, "include"));
 
 			// Link libcoreclr.dylib (Mono runtime; named "coreclr" per Microsoft unified naming).
@@ -243,8 +245,9 @@ public class MonoSDK : ModuleRules
 			string monoLib = Path.Combine(monoPlatformDir, "lib");
 			string monoRuntime = Path.Combine(monoPlatformDir, "runtime");
 
-			// Win64 has its own include/ (superset: adds jit.h variants not in shared include/)
-			PublicIncludePaths.Add(Path.Combine(monoPlatformDir, "include"));
+			// Headers come from the shared include/ at the MonoSDK root, sourced from the
+			// Win64 build (the superset -- see BuildMonoSDK.bat).
+			PublicIncludePaths.Add(Path.Combine(monoSdkRoot, "include"));
 
 			// Dynamic link: import lib at compile time; coreclr.dll copied to Binaries/Win64/.
 			// Two-argument RuntimeDependencies.Add(dest, src) triggers the build-time copy.

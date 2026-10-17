@@ -132,20 +132,15 @@ jobs:
           cp README.md package/${PACKAGE_NAME}/ 2>/dev/null || true
           cp .gitignore package/${PACKAGE_NAME}/ 2>/dev/null || true
 
-          # Copy include/ from any platform that has it. The shared include/ is
-          # arch-independent, so Linux (flat) or any Mac/<arch> (arch-qualified) works.
-          INCLUDE_SRC=""
-          for CANDIDATE in Linux/x64/include Mac/arm64/include Mac/x64/include IOS/arm64/include; do
-            if [ -d "$CANDIDATE" ]; then
-              INCLUDE_SRC="$CANDIDATE"
-              break
-            fi
-          done
-          if [ -n "$INCLUDE_SRC" ]; then
-            cp -Rf "$INCLUDE_SRC" package/${PACKAGE_NAME}/include 2>/dev/null || true
-            echo "include/ copied from $INCLUDE_SRC"
+          # The shared include/ ships once at the package root, sourced from the Win64
+          # build: it is the superset (it adds the jit.h variants the other platforms'
+          # builds omit), and it is the only platform that carries headers at all --
+          # BuildMonoSDK.sh no longer copies headers into the non-Windows SDK dirs.
+          if [ -d "Win64/x64/include" ]; then
+            cp -Rf "Win64/x64/include" package/${PACKAGE_NAME}/include 2>/dev/null || true
+            echo "include/ copied from Win64/x64/include"
           else
-            echo "⚠️ No include/ directory found in any platform SDK"
+            echo "⚠️ Win64/x64/include not found -- the Win64 artifact is missing or predates the header change"
           fi
 
           echo "✅ Package created at package/${PACKAGE_NAME}/"

@@ -153,17 +153,9 @@ mkdir -p "$DEST"
 #   1. cd into source directory
 #   2. cp -Rf . "$DEST/subdir/"
 
-# include/: strip mono-2.0/ prefix → files land in $DEST/include/ directly
-if [[ -d "$SRC_ARTIFACTS/obj/mono/$MONO_TRIPLE/out/include/mono-2.0" ]]; then
-    cd "$SRC_ARTIFACTS/obj/mono/$MONO_TRIPLE/out/include/mono-2.0"
-    cp -Rf . "$DEST/include/" 2>/dev/null || true
-    # Flatten: if mono-2.0/ itself got nested, fix it
-    if [[ -d "$DEST/include/mono-2.0" ]]; then
-        mv "$DEST/include/mono-2.0/"* "$DEST/include/" 2>/dev/null || true
-        rm -rf "$DEST/include/mono-2.0"
-    fi
-    cd "$SDK_DIR"
-fi
+# include/ is NOT copied per platform: the shared headers live in the MonoSDK root
+# (include/) and are sourced from the Win64 build, which is the superset. See the
+# matching comment in BuildMonoSDK.sh.
 
 # lib/: handle both flat and nested (lib/lib/) layouts
 if [[ -d "$SRC_ARTIFACTS/obj/mono/$MONO_TRIPLE/out/lib" ]]; then
@@ -248,17 +240,8 @@ if [[ -n "$NATIVE_TFM" ]]; then
     fi
 fi
 
-# Update shared include/ (mono headers are platform- and arch-independent, so the
-# copy from whichever arch was built last is equivalent).
-# Guarded on the source existing: the headers are shared by every platform, so
-# deleting them first and then failing the copy (set -e) would break the whole SDK.
-MONO_INCLUDE_SRC="$SRC_ARTIFACTS/obj/mono/$MONO_TRIPLE/out/include/mono-2.0"
-if [[ -d "$MONO_INCLUDE_SRC" ]]; then
-    rm -rf "$SDK_DIR/include"
-    cp -Rf "$MONO_INCLUDE_SRC/" "$SDK_DIR/include"
-else
-    echo "Warning: mono headers not found at $MONO_INCLUDE_SRC; keeping existing $SDK_DIR/include." >&2
-fi
+# The shared include/ is NOT refreshed here: it lives once at the MonoSDK root and is
+# sourced from the Win64 build (the superset). Only BuildMonoSDK.bat writes it.
 
 # ── Validate the produced SDK ─────────────────────────────────────────────────
 # See BuildMonoSDK.sh: the copies above tolerate missing sources, so an incomplete
@@ -272,7 +255,6 @@ require_non_empty() {
 }
 require_non_empty "$DEST/lib"          "the Mono native libraries (libcoreclr/libmonosgen)"
 require_non_empty "$DEST/runtime"      "the BCL assemblies"
-require_non_empty "$SDK_DIR/include"   "the Mono headers"
 
 # ── Write VERSION.txt ──────────────────────────────────────────────────────────
 DOTNET_BRANCH="$(cd "$DOTNET_SRC" && git rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'unknown')"
