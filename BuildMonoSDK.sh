@@ -133,9 +133,14 @@ echo ">>> Building Mono + libs for $PLATFORM ($ARCH, $BUILD_TYPE)..."
 # Demoting the NU1901-NU1904 codes to warnings keeps every advisory visible in the log
 # while decoupling the SDK build from advisory churn. The shipped runtime is not affected
 # by advisories in those tooling packages; scanning the produced SDK belongs to the
-# consumer, not here. (eng/common/build.sh forwards unrecognised args to MSBuild.)
+# consumer, not here.
+#
+# Two details that make this work:
+#   - %3B is MSBuild's escape for ';'. A literal ';' in a /p: value splits it into
+#     several properties on the MSBuild command line and fails with MSB1006.
+#   - eng/common/build.sh forwards unrecognised arguments straight to MSBuild.
 ./build.sh mono+libs -os "$DOTNET_OS" -arch "$ARCH" -configuration "$BUILD_TYPE" \
-    "/p:WarningsNotAsErrors=NU1901;NU1902;NU1903;NU1904"
+    "/p:WarningsNotAsErrors=NU1901%3BNU1902%3BNU1903%3BNU1904"
 
 echo ""
 echo ">>> Build complete. Copying artifacts into SDK directory..."
@@ -360,7 +365,7 @@ case "$PLATFORM" in
     android)      PLATFORM_LABEL="Android ($ARCH)" ;;
     linux)        PLATFORM_LABEL="Linux ($ARCH)" ;;
 esac
-BUILD_CMD="./build.sh mono+libs -os $DOTNET_OS -arch $ARCH -configuration $BUILD_TYPE /p:WarningsNotAsErrors=NU1901;NU1902;NU1903;NU1904"
+BUILD_CMD="./build.sh mono+libs -os $DOTNET_OS -arch $ARCH -configuration $BUILD_TYPE /p:WarningsNotAsErrors=NU1901%3BNU1902%3BNU1903%3BNU1904"
 
 cat > "$DEST/VERSION.txt" <<EOF
 dotnet/runtime source
