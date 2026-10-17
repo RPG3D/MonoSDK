@@ -126,7 +126,16 @@ if [[ "$PLATFORM" != "$HOST_PLATFORM" || "$ARCH" != "$HOST_ARCH" ]]; then
 fi
 
 echo ">>> Building Mono + libs for $PLATFORM ($ARCH, $BUILD_TYPE)..."
-./build.sh mono+libs -os "$DOTNET_OS" -arch "$ARCH" -configuration "$BUILD_TYPE"
+# NuGet audit advisories must not fail this build. dotnet/runtime treats audit warnings
+# as errors, so a newly published advisory against a *build-time tooling* package breaks
+# the whole SDK build with no change on our side -- e.g. NU1902/NU1903 on
+# System.Security.Cryptography.Pkcs 9.0.6, pulled in by Crossgen2Tasks/installer.tasks.
+# Demoting the NU1901-NU1904 codes to warnings keeps every advisory visible in the log
+# while decoupling the SDK build from advisory churn. The shipped runtime is not affected
+# by advisories in those tooling packages; scanning the produced SDK belongs to the
+# consumer, not here. (eng/common/build.sh forwards unrecognised args to MSBuild.)
+./build.sh mono+libs -os "$DOTNET_OS" -arch "$ARCH" -configuration "$BUILD_TYPE" \
+    "/p:WarningsNotAsErrors=NU1901;NU1902;NU1903;NU1904"
 
 echo ""
 echo ">>> Build complete. Copying artifacts into SDK directory..."
@@ -351,7 +360,7 @@ case "$PLATFORM" in
     android)      PLATFORM_LABEL="Android ($ARCH)" ;;
     linux)        PLATFORM_LABEL="Linux ($ARCH)" ;;
 esac
-BUILD_CMD="./build.sh mono+libs -os $DOTNET_OS -arch $ARCH -configuration $BUILD_TYPE"
+BUILD_CMD="./build.sh mono+libs -os $DOTNET_OS -arch $ARCH -configuration $BUILD_TYPE /p:WarningsNotAsErrors=NU1901;NU1902;NU1903;NU1904"
 
 cat > "$DEST/VERSION.txt" <<EOF
 dotnet/runtime source
