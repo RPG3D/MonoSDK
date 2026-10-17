@@ -5,7 +5,7 @@
 
      Path note: $S(PluginDir) resolves to the directory containing this APL file,
      which is Source/ThirdParty/MonoSDK/ inside the UnrealSharp plugin root.
-     All Mono SDK artifacts live under Android/lib/ and Android/runtime/
+     All Mono SDK artifacts live under Android/arm64/lib/ and Android/arm64/runtime/
      relative to this directory. -->
 <root xmlns:android="http://schemas.android.com/apk/res/android">
 
@@ -25,31 +25,31 @@
     <if condition="bArm64">
       <true>
         <!-- Main Mono runtime -->
-        <copyFile src="$S(PluginDir)/Android/lib/libmonosgen-2.0.so"
+        <copyFile src="$S(PluginDir)/Android/arm64/lib/libmonosgen-2.0.so"
                   dst="$S(BuildDir)/libs/arm64-v8a/libmonosgen-2.0.so" />
         <log text="UnrealSharp Mono: copied libmonosgen-2.0.so"/>
 
         <!-- Mono component .so files (loaded by Mono at runtime via dlopen) -->
-        <copyFile src="$S(PluginDir)/Android/lib/libmono-component-debugger.so"
+        <copyFile src="$S(PluginDir)/Android/arm64/lib/libmono-component-debugger.so"
                   dst="$S(BuildDir)/libs/arm64-v8a/libmono-component-debugger.so" />
-        <copyFile src="$S(PluginDir)/Android/lib/libmono-component-diagnostics_tracing.so"
+        <copyFile src="$S(PluginDir)/Android/arm64/lib/libmono-component-diagnostics_tracing.so"
                   dst="$S(BuildDir)/libs/arm64-v8a/libmono-component-diagnostics_tracing.so" />
-        <copyFile src="$S(PluginDir)/Android/lib/libmono-component-hot_reload.so"
+        <copyFile src="$S(PluginDir)/Android/arm64/lib/libmono-component-hot_reload.so"
                   dst="$S(BuildDir)/libs/arm64-v8a/libmono-component-hot_reload.so" />
-        <copyFile src="$S(PluginDir)/Android/lib/libmono-component-marshal-ilgen.so"
+        <copyFile src="$S(PluginDir)/Android/arm64/lib/libmono-component-marshal-ilgen.so"
                   dst="$S(BuildDir)/libs/arm64-v8a/libmono-component-marshal-ilgen.so" />
         <log text="UnrealSharp Mono: copied component .so files"/>
 
         <!-- Native interop .so files (P/Invoke targets for BCL) -->
-        <copyFile src="$S(PluginDir)/Android/runtime/libSystem.Native.so"
+        <copyFile src="$S(PluginDir)/Android/arm64/runtime/libSystem.Native.so"
                   dst="$S(BuildDir)/libs/arm64-v8a/libSystem.Native.so" />
-        <copyFile src="$S(PluginDir)/Android/runtime/libSystem.Globalization.Native.so"
+        <copyFile src="$S(PluginDir)/Android/arm64/runtime/libSystem.Globalization.Native.so"
                   dst="$S(BuildDir)/libs/arm64-v8a/libSystem.Globalization.Native.so" />
-        <copyFile src="$S(PluginDir)/Android/runtime/libSystem.IO.Compression.Native.so"
+        <copyFile src="$S(PluginDir)/Android/arm64/runtime/libSystem.IO.Compression.Native.so"
                   dst="$S(BuildDir)/libs/arm64-v8a/libSystem.IO.Compression.Native.so" />
-        <copyFile src="$S(PluginDir)/Android/runtime/libSystem.IO.Ports.Native.so"
+        <copyFile src="$S(PluginDir)/Android/arm64/runtime/libSystem.IO.Ports.Native.so"
                   dst="$S(BuildDir)/libs/arm64-v8a/libSystem.IO.Ports.Native.so" />
-        <copyFile src="$S(PluginDir)/Android/runtime/libSystem.Security.Cryptography.Native.Android.so"
+        <copyFile src="$S(PluginDir)/Android/arm64/runtime/libSystem.Security.Cryptography.Native.Android.so"
                   dst="$S(BuildDir)/libs/arm64-v8a/libSystem.Security.Cryptography.Native.Android.so" />
         <log text="UnrealSharp Mono: copied native interop .so files"/>
       </true>
