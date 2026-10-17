@@ -68,7 +68,7 @@ Prerequisites: Visual Studio 2022 (Windows), Xcode (macOS/iOS), Android NDK (And
 
 Both workflows are `workflow_dispatch`-only and run on GitHub-hosted runners — Mono is not built on developer machines for releases.
 
-- `build-all.yml` — one job per platform. macOS and iOS Simulator build both architectures, each on a native runner (`macos-26` for arm64, `macos-26-intel` for x64), so no leg is cross-arch. Artifacts are named `MonoSDK-macOS-{arch}-{build-type}` and `MonoSDK-iOS-Simulator-{arch}-{build-type}`, uploaded from `Mac/{arch}/` and `IOSSimulator/{arch}/`.
+- `build-all.yml` — eight flat jobs, one per platform/arch, side by side on the Actions page: `build-linux`, `build-windows`, `build-macos-arm64`, `build-macos-x64`, `build-ios`, `build-iossimulator-arm64`, `build-iossimulator-x64`, `build-android`. All macOS legs run on `macos-26` (Apple Silicon); the x64 legs are cross-arch builds (`-arch x64`), which dotnet/runtime handles natively via `CMAKE_OSX_ARCHITECTURES`. Artifacts are named `MonoSDK-<platform>-<arch>-{build-type}` and uploaded from their `<Platform>/<arch>/` directory.
 - `package-release.yml` — downloads every platform artifact into the matching directory (`Mac/arm64`, `Mac/x64`, `IOSSimulator/arm64`, `IOSSimulator/x64`; flat for single-arch platforms), verifies them, and publishes a single release zip.
 
 ## Repository Structure

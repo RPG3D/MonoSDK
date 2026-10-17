@@ -127,21 +127,10 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
-  build-macos:
-    # macOS ships an x64 and an arm64 SDK, uploaded separately (Mac/x64, Mac/arm64).
-    # Each arch builds on a native runner — macos-26 is Apple Silicon (arm64),
-    # macos-26-intel is Intel (x64) — so the build is never cross-arch and
-    # BuildMonoSDK.sh's default arch (the host arch) already matches the target.
+  build-macos-arm64:
+    # Native build on the Apple Silicon runner -> Mac/arm64.
     if: github.event.inputs.build_macos == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: arm64
-            runner: macos-26
-          - arch: x64
-            runner: macos-26-intel
-    runs-on: ${{ matrix.runner }}
+    runs-on: macos-26
     steps:
       - name: Checkout MonoSDK
         uses: actions/checkout@v4
@@ -152,25 +141,65 @@ jobs:
         run: |
           git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
 
-      - name: Build MonoSDK (macOS ${{ matrix.arch }})
+      - name: Build MonoSDK (macOS arm64)
         run: |
           chmod +x BuildMonoSDK.sh
-          ./BuildMonoSDK.sh $(pwd)/dotnet-runtime macos ${{ github.event.inputs.build_type || 'Debug' }} ${{ matrix.arch }}
+          ./BuildMonoSDK.sh $(pwd)/dotnet-runtime macos ${{ github.event.inputs.build_type || 'Debug' }} arm64
 
       - name: Set artifact variables
         id: artifact
         run: |
           if [ "${{ github.event.inputs.build_type || 'Debug' }}" == "Release" ]; then
-            echo "name=MonoSDK-macOS-${{ matrix.arch }}-Release" >> $GITHUB_OUTPUT
+            echo "name=MonoSDK-macOS-arm64-Release" >> $GITHUB_OUTPUT
           else
-            echo "name=MonoSDK-macOS-${{ matrix.arch }}-Debug" >> $GITHUB_OUTPUT
+            echo "name=MonoSDK-macOS-arm64-Debug" >> $GITHUB_OUTPUT
           fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.artifact.outputs.name }}
-          path: Mac/${{ matrix.arch }}/
+          path: Mac/arm64/
+          retention-days: 30
+          if-no-files-found: error
+
+  build-macos-x64:
+    # Cross-arch build (-arch x64) on the Apple Silicon runner -> Mac/x64. The Intel
+    # runners are markedly slower than macos-26, and the managed half of the build is
+    # arch-independent anyway; dotnet/runtime handles the native cross compile via
+    # CMAKE_OSX_ARCHITECTURES. If this leg ever misbehaves, move it back to
+    # macos-26-intel for a native build.
+    if: github.event.inputs.build_macos == 'true'
+    runs-on: macos-26
+    steps:
+      - name: Checkout MonoSDK
+        uses: actions/checkout@v4
+        with:
+          ref: ci/auto-build
+
+      - name: Clone dotnet/runtime
+        run: |
+          git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
+
+      - name: Build MonoSDK (macOS x64)
+        run: |
+          chmod +x BuildMonoSDK.sh
+          ./BuildMonoSDK.sh $(pwd)/dotnet-runtime macos ${{ github.event.inputs.build_type || 'Debug' }} x64
+
+      - name: Set artifact variables
+        id: artifact
+        run: |
+          if [ "${{ github.event.inputs.build_type || 'Debug' }}" == "Release" ]; then
+            echo "name=MonoSDK-macOS-x64-Release" >> $GITHUB_OUTPUT
+          else
+            echo "name=MonoSDK-macOS-x64-Debug" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: Mac/x64/
           retention-days: 30
           if-no-files-found: error
 
@@ -209,21 +238,11 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
-  build-iossimulator:
-    # The simulator ships an arm64 and an x86_64 SDK, uploaded separately
-    # (IOSSimulator/arm64, IOSSimulator/x64). UE 5.7 builds the arm64 simulator only;
-    # the x64 SDK is for engine lines/toolchains that still support it.
-    # Each arch builds on a native runner, same arrangement as build-macos.
+  build-iossimulator-arm64:
+    # Native build on the Apple Silicon runner -> IOSSimulator/arm64. UE 5.7 builds the
+    # simulator for arm64 only; the x64 SDK is for toolchains that still support it.
     if: github.event.inputs.build_iossimulator == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: arm64
-            runner: macos-26
-          - arch: x64
-            runner: macos-26-intel
-    runs-on: ${{ matrix.runner }}
+    runs-on: macos-26
     steps:
       - name: Checkout MonoSDK
         uses: actions/checkout@v4
@@ -234,25 +253,62 @@ jobs:
         run: |
           git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
 
-      - name: Build MonoSDK (iOS Simulator ${{ matrix.arch }})
+      - name: Build MonoSDK (iOS Simulator arm64)
         run: |
           chmod +x BuildMonoSDK.sh
-          ./BuildMonoSDK.sh $(pwd)/dotnet-runtime iossimulator ${{ github.event.inputs.build_type || 'Debug' }} ${{ matrix.arch }}
+          ./BuildMonoSDK.sh $(pwd)/dotnet-runtime iossimulator ${{ github.event.inputs.build_type || 'Debug' }} arm64
 
       - name: Set artifact variables
         id: artifact
         run: |
           if [ "${{ github.event.inputs.build_type || 'Debug' }}" == "Release" ]; then
-            echo "name=MonoSDK-iOS-Simulator-${{ matrix.arch }}-Release" >> $GITHUB_OUTPUT
+            echo "name=MonoSDK-iOS-Simulator-arm64-Release" >> $GITHUB_OUTPUT
           else
-            echo "name=MonoSDK-iOS-Simulator-${{ matrix.arch }}-Debug" >> $GITHUB_OUTPUT
+            echo "name=MonoSDK-iOS-Simulator-arm64-Debug" >> $GITHUB_OUTPUT
           fi
 
-      - name: Upload iOS Simulator artifacts
+      - name: Upload iOS Simulator arm64 artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.artifact.outputs.name }}
-          path: IOSSimulator/${{ matrix.arch }}/
+          path: IOSSimulator/arm64/
+          retention-days: 30
+          if-no-files-found: error
+
+  build-iossimulator-x64:
+    # Cross-arch build (-arch x64) on the Apple Silicon runner -> IOSSimulator/x64,
+    # same reasoning as build-macos-x64.
+    if: github.event.inputs.build_iossimulator == 'true'
+    runs-on: macos-26
+    steps:
+      - name: Checkout MonoSDK
+        uses: actions/checkout@v4
+        with:
+          ref: ci/auto-build
+
+      - name: Clone dotnet/runtime
+        run: |
+          git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
+
+      - name: Build MonoSDK (iOS Simulator x64)
+        run: |
+          chmod +x BuildMonoSDK.sh
+          ./BuildMonoSDK.sh $(pwd)/dotnet-runtime iossimulator ${{ github.event.inputs.build_type || 'Debug' }} x64
+
+      - name: Set artifact variables
+        id: artifact
+        run: |
+          if [ "${{ github.event.inputs.build_type || 'Debug' }}" == "Release" ]; then
+            echo "name=MonoSDK-iOS-Simulator-x64-Release" >> $GITHUB_OUTPUT
+          else
+            echo "name=MonoSDK-iOS-Simulator-x64-Debug" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload iOS Simulator x64 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: IOSSimulator/x64/
           retention-days: 30
           if-no-files-found: error
 
