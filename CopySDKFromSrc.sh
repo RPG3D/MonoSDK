@@ -7,17 +7,24 @@
 # Use this in CI workflows where the build step is done separately.
 #
 # Usage:
-#   ./CopySDKFromSrc.sh <dotnet-src-dir> <platform> [build-type]
+#   ./CopySDKFromSrc.sh <dotnet-src-dir> <platform> [build-type] [arch]
 #
 # Arguments:
 #   dotnet-src-dir   Path to the dotnet/runtime repository root (must be already built).
 #   platform         Target platform: macos | android | ios | iossimulator | linux
 #   build-type       Debug (default) | Release
+#   arch             x64 | arm64 (defaults to the host architecture).
+#                    Cross-arch builds must pass it explicitly.
+#
+# Output layout matches BuildMonoSDK.sh: arch-qualified dirs for the platforms that
+# ship more than one architecture (Mac/<arch>, IOSSimulator/<arch>), flat dirs for
+# the single-arch platforms (Win64, Android, IOS, Linux).
 #
 # Examples:
-#   ./CopySDKFromSrc.sh ~/dotnet-runtime macos
+#   ./CopySDKFromSrc.sh ~/dotnet-runtime macos Release x64
+#   ./CopySDKFromSrc.sh ~/dotnet-runtime macos Release arm64
+#   ./CopySDKFromSrc.sh ~/dotnet-runtime iossimulator Release arm64
 #   ./CopySDKFromSrc.sh ~/dotnet-runtime linux Debug
-#   ./CopySDKFromSrc.sh ~/dotnet-runtime android Release
 
 set -euo pipefail
 
@@ -26,7 +33,7 @@ DOTNET_SRC="${1:-}"
 PLATFORM="${2:-}"
 if [[ -z "$DOTNET_SRC" || -z "$PLATFORM" ]]; then
     echo "Error: missing required arguments." >&2
-    echo "Usage: $0 <dotnet-src-dir> <platform> [build-type]" >&2
+    echo "Usage: $0 <dotnet-src-dir> <platform> [build-type] [arch]" >&2
     exit 1
 fi
 DOTNET_SRC="$(cd "$DOTNET_SRC" && pwd)"
@@ -43,20 +50,38 @@ case "$BUILD_TYPE_LOWER" in
         ;;
 esac
 
+# Host architecture, used as the default target arch (native build).
+case "$(uname -m)" in
+    arm64|aarch64) HOST_ARCH="arm64" ;;
+    x86_64|amd64)  HOST_ARCH="x64" ;;
+    *)             HOST_ARCH="x64" ;;
+esac
+ARCH="${4:-$HOST_ARCH}"
+
+case "$ARCH" in
+    x64|arm64) ;;
+    *)
+        echo "Error: unknown arch '$ARCH'. Use x64 or arm64." >&2
+        exit 1
+        ;;
+esac
+
 SDK_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo "=== CopySDKFromSrc ==="
 echo "  Source    : $DOTNET_SRC"
 echo "  Platform  : $PLATFORM"
+echo "  Arch      : $ARCH"
 echo "  Build type: $BUILD_TYPE"
 echo "  SDK dir   : $SDK_DIR"
 echo ""
 
-# ── Validate platform ────────────────────────────────────────────────────────
-case "$PLATFORM" in
-    macos|ios|iossimulator|android|linux) ;;
+# ── Platform/arch matrix ─────────────────────────────────────────────────────
+case "$PLATFORM/$ARCH" in
+    macos/x64|macos/arm64|ios/arm64|iossimulator/x64|iossimulator/arm64|android/arm64|linux/x64) ;;
     *)
-        echo "Error: unknown platform '$PLATFORM'. Supported: macos | android | ios | iossimulator | linux" >&2
+        echo "Error: unsupported platform/arch combination '$PLATFORM/$ARCH'." >&2
+        echo "Supported: macos/{x64,arm64} ios/arm64 iossimulator/{x64,arm64} android/arm64 linux/x64" >&2
         exit 1
         ;;
 esac
@@ -64,30 +89,47 @@ esac
 # ── Set platform-specific variables ──────────────────────────────────────────
 SRC_ARTIFACTS="$DOTNET_SRC/artifacts"
 
-case "$PLATFORM" in
-    macos)
+case "$PLATFORM/$ARCH" in
+    macos/x64)
+        MONO_TRIPLE="osx.x64.$BUILD_TYPE"
+        RUNTIME_TFM="net10.0-osx-$BUILD_TYPE-x64"
+        NATIVE_TFM="net10.0-osx-$BUILD_TYPE-x64"
+        DEST="$SDK_DIR/Mac/x64"
+        ;;
+    macos/arm64)
         MONO_TRIPLE="osx.arm64.$BUILD_TYPE"
         RUNTIME_TFM="net10.0-osx-$BUILD_TYPE-arm64"
-        DEST="$SDK_DIR/Mac"
+        NATIVE_TFM="net10.0-osx-$BUILD_TYPE-arm64"
+        DEST="$SDK_DIR/Mac/arm64"
         ;;
-    ios)
+    ios/arm64)
         MONO_TRIPLE="ios.arm64.$BUILD_TYPE"
         RUNTIME_TFM="net10.0-ios-$BUILD_TYPE-arm64"
+        NATIVE_TFM="net10.0-ios-$BUILD_TYPE-arm64"
         DEST="$SDK_DIR/IOS"
         ;;
-    iossimulator)
+    iossimulator/x64)
+        MONO_TRIPLE="iossimulator.x64.$BUILD_TYPE"
+        RUNTIME_TFM="net10.0-iossimulator-$BUILD_TYPE-x64"
+        NATIVE_TFM="net10.0-iossimulator-$BUILD_TYPE-x64"
+        DEST="$SDK_DIR/IOSSimulator/x64"
+        ;;
+    iossimulator/arm64)
         MONO_TRIPLE="iossimulator.arm64.$BUILD_TYPE"
         RUNTIME_TFM="net10.0-iossimulator-$BUILD_TYPE-arm64"
-        DEST="$SDK_DIR/IOSSimulator"
+        NATIVE_TFM="net10.0-iossimulator-$BUILD_TYPE-arm64"
+        DEST="$SDK_DIR/IOSSimulator/arm64"
         ;;
-    android)
+    android/arm64)
         MONO_TRIPLE="android.arm64.$BUILD_TYPE"
         RUNTIME_TFM="net10.0-android-$BUILD_TYPE-arm64"
+        NATIVE_TFM=""
         DEST="$SDK_DIR/Android"
         ;;
-    linux)
+    linux/x64)
         MONO_TRIPLE="linux.x64.$BUILD_TYPE"
         RUNTIME_TFM="net10.0-linux-$BUILD_TYPE-x64"
+        NATIVE_TFM=""
         DEST="$SDK_DIR/Linux"
         ;;
 esac
@@ -168,29 +210,74 @@ if [[ -d "$SRC_ARTIFACTS/bin/mono/$MONO_TRIPLE/IL" ]]; then
     cd "$SDK_DIR"
 fi
 
-# iOS/IOSSimulator: copy native interop libs from bin/native/<TFM>/.
-if [[ "$PLATFORM" == "ios" || "$PLATFORM" == "iossimulator" ]]; then
-    NATIVE_TFM="net10.0-${PLATFORM}-${BUILD_TYPE}-arm64"
-    mkdir -p "$DEST/tools"
-    cp -f "$SRC_ARTIFACTS/bin/native/$NATIVE_TFM"/lib*.a    "$DEST/lib/"   2>/dev/null || true
-    cp -f "$SRC_ARTIFACTS/bin/native/$NATIVE_TFM"/lib*.dylib "$DEST/lib/"  2>/dev/null || true
-    cp -f "$SRC_ARTIFACTS/bin/native/$NATIVE_TFM"/lib*.dylib "$DEST/tools/" 2>/dev/null || true
+# Apple platforms (macOS / iOS / iOS Simulator): copy native interop libs from
+# bin/native/<NATIVE_TFM>/ (see BuildMonoSDK.sh for the layout rationale).
+# NATIVE_TFM is empty for the platforms that have none (Android, Linux).
+if [[ -n "$NATIVE_TFM" ]]; then
+    NATIVE_SRC="$SRC_ARTIFACTS/bin/native/$NATIVE_TFM"
+
+    # See BuildMonoSDK.sh: a wrong TFM would otherwise be silent, and only show up as a
+    # DllImport failure at runtime.
+    if [[ ! -d "$NATIVE_SRC" ]]; then
+        echo "Error: native interop artifact directory not found: $NATIVE_SRC" >&2
+        echo "       dotnet/runtime's bin/native layout may have changed." >&2
+        exit 1
+    fi
+    NATIVE_COUNT=0
+    for f in "$NATIVE_SRC"/lib*.a "$NATIVE_SRC"/lib*.dylib; do
+        [[ -f "$f" ]] && NATIVE_COUNT=$((NATIVE_COUNT + 1))
+    done
+    if [[ "$NATIVE_COUNT" -eq 0 ]]; then
+        echo "Error: $NATIVE_SRC contains no lib*.a or lib*.dylib interop libraries." >&2
+        exit 1
+    fi
+
+    if [[ "$PLATFORM" == "ios" || "$PLATFORM" == "iossimulator" ]]; then
+        mkdir -p "$DEST/tools"
+    fi
+    cp -f "$NATIVE_SRC"/lib*.a     "$DEST/lib/" 2>/dev/null || true
+    cp -f "$NATIVE_SRC"/lib*.dylib "$DEST/lib/" 2>/dev/null || true
+    if [[ "$PLATFORM" == "ios" || "$PLATFORM" == "iossimulator" ]]; then
+        cp -f "$NATIVE_SRC"/lib*.dylib "$DEST/tools/" 2>/dev/null || true
+    fi
 fi
 
-# Update shared include/ (mono headers are platform-independent)
-rm -rf "$SDK_DIR/include"
-cp -Rf "$SRC_ARTIFACTS/obj/mono/$MONO_TRIPLE/out/include/mono-2.0/" "$SDK_DIR/include"
+# Update shared include/ (mono headers are platform- and arch-independent, so the
+# copy from whichever arch was built last is equivalent).
+# Guarded on the source existing: the headers are shared by every platform, so
+# deleting them first and then failing the copy (set -e) would break the whole SDK.
+MONO_INCLUDE_SRC="$SRC_ARTIFACTS/obj/mono/$MONO_TRIPLE/out/include/mono-2.0"
+if [[ -d "$MONO_INCLUDE_SRC" ]]; then
+    rm -rf "$SDK_DIR/include"
+    cp -Rf "$MONO_INCLUDE_SRC/" "$SDK_DIR/include"
+else
+    echo "Warning: mono headers not found at $MONO_INCLUDE_SRC; keeping existing $SDK_DIR/include." >&2
+fi
+
+# ── Validate the produced SDK ─────────────────────────────────────────────────
+# See BuildMonoSDK.sh: the copies above tolerate missing sources, so an incomplete
+# artifact tree must be caught here rather than at link time or on device.
+require_non_empty() {
+    local dir="$1" what="$2"
+    if [[ ! -d "$dir" ]] || [[ -z "$(ls -A "$dir" 2>/dev/null)" ]]; then
+        echo "Error: $dir is empty or missing (expected: $what)." >&2
+        exit 1
+    fi
+}
+require_non_empty "$DEST/lib"          "the Mono native libraries (libcoreclr/libmonosgen)"
+require_non_empty "$DEST/runtime"      "the BCL assemblies"
+require_non_empty "$SDK_DIR/include"   "the Mono headers"
 
 # ── Write VERSION.txt ──────────────────────────────────────────────────────────
 DOTNET_BRANCH="$(cd "$DOTNET_SRC" && git rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'unknown')"
 DOTNET_COMMIT="$(cd "$DOTNET_SRC" && git rev-parse --short HEAD 2>/dev/null || echo 'unknown')"
 
 case "$PLATFORM" in
-    macos)   PLATFORM_LABEL="macOS (arm64)" ;;
-    ios)     PLATFORM_LABEL="iOS (arm64)" ;;
-    iossimulator) PLATFORM_LABEL="iOS Simulator (arm64)" ;;
-    android) PLATFORM_LABEL="Android (arm64)" ;;
-    linux)   PLATFORM_LABEL="Linux (x64)" ;;
+    macos)        PLATFORM_LABEL="macOS ($ARCH)" ;;
+    ios)          PLATFORM_LABEL="iOS ($ARCH)" ;;
+    iossimulator) PLATFORM_LABEL="iOS Simulator ($ARCH)" ;;
+    android)      PLATFORM_LABEL="Android ($ARCH)" ;;
+    linux)        PLATFORM_LABEL="Linux ($ARCH)" ;;
 esac
 
 cat > "$DEST/VERSION.txt" <<EOF
@@ -200,6 +287,7 @@ dotnet/runtime source
   commit: $DOTNET_COMMIT
 
 Platform: $PLATFORM_LABEL
+Arch: $ARCH
 Build type: $BUILD_TYPE
 EOF
 

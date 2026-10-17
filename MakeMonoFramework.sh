@@ -12,24 +12,33 @@
 # If no existing zip is present yet, a minimal stub is compiled on the fly as fallback.
 #
 # Usage:
-#   ./MakeMonoFramework.sh <platform> <sdk-platform-dir>
+#   ./MakeMonoFramework.sh <platform> <sdk-platform-dir> [arch]
 #
 # Arguments:
 #   platform          ios | iossimulator
-#   sdk-platform-dir  Path to the MonoSDK platform directory that contains lib/.
-#                     e.g. /path/to/MonoSDK/IOSSimulator
+#   sdk-platform-dir  Path to the arch-specific MonoSDK platform directory that
+#                     contains lib/ and tools/, e.g.
+#                       /path/to/MonoSDK/IOS
+#                       /path/to/MonoSDK/IOSSimulator/arm64
+#                       /path/to/MonoSDK/IOSSimulator/x64
+#   arch              arm64 (default) | x64 — only used to compile the fallback
+#                     stub binary; the reused stub from an existing zip is
+#                     architecture-specific too, so keep the arch consistent with
+#                     the directory.
 #
 # Examples:
-#   ./MakeMonoFramework.sh iossimulator IOSSimulator
+#   ./MakeMonoFramework.sh iossimulator IOSSimulator/arm64 arm64
+#   ./MakeMonoFramework.sh iossimulator IOSSimulator/x64   x64
 #   ./MakeMonoFramework.sh ios IOS
 
 set -euo pipefail
 
 PLATFORM="${1:-}"
 DEST="${2:-}"
+ARCH="${3:-arm64}"
 
 if [[ -z "$PLATFORM" || -z "$DEST" ]]; then
-    echo "Usage: $0 <platform> <sdk-platform-dir>" >&2
+    echo "Usage: $0 <platform> <sdk-platform-dir> [arch]" >&2
     echo "  platform: ios | iossimulator" >&2
     exit 1
 fi
@@ -39,20 +48,32 @@ if [[ "$PLATFORM" != "ios" && "$PLATFORM" != "iossimulator" ]]; then
     exit 1
 fi
 
+case "$ARCH" in
+    x64|arm64) ;;
+    *)
+        echo "Error: arch must be 'x64' or 'arm64', got '$ARCH'" >&2
+        exit 1
+        ;;
+esac
+
 DEST="$(cd "$DEST" && pwd)"
 SDK_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# clang spells 64-bit x86 as x86_64.
+CLANG_ARCH="$ARCH"
+[[ "$ARCH" == "x64" ]] && CLANG_ARCH="x86_64"
+
 echo "=== MakeMonoFramework ==="
 echo "  Platform : $PLATFORM"
+echo "  Arch     : $ARCH"
 echo "  SDK dir  : $DEST"
 echo ""
 echo ">>> Building Mono.embeddedframework.zip..."
 
 # ── Existing SDK zip (reuse stub binary + metadata) ───────────────────────────
-case "$PLATFORM" in
-    ios)          DEBUG_ZIP="$SDK_DIR/IOS/lib/Mono.embeddedframework.zip" ;;
-    iossimulator) DEBUG_ZIP="$SDK_DIR/IOSSimulator/lib/Mono.embeddedframework.zip" ;;
-esac
+# Derived from DEST so it works for both the flat IOS/ dir and the arch-qualified
+# IOSSimulator/<arch>/ dirs.
+DEBUG_ZIP="$DEST/lib/Mono.embeddedframework.zip"
 
 # ── Assemble framework tree in a temp directory ───────────────────────────────
 FW_WORK="$(mktemp -d)"
@@ -125,15 +146,15 @@ __attribute__((visibility("default"))) const double MonoVersionNumber = 10.0;
 CSTUB
 
     if [[ "$PLATFORM" == "ios" ]]; then
-        xcrun -sdk iphoneos clang -arch arm64 \
+        xcrun -sdk iphoneos clang -arch "$CLANG_ARCH" \
             -dynamiclib \
             -install_name "@rpath/Mono.framework/Mono" \
             -compatibility_version 10.0 -current_version 10.0 \
             -miphoneos-version-min=15.0 \
             -o "$FW_ROOT/Mono" "$STUB_C"
     else
-        xcrun -sdk iphonesimulator clang -arch arm64 \
-            -target arm64-apple-ios15.0-simulator \
+        xcrun -sdk iphonesimulator clang -arch "$CLANG_ARCH" \
+            -target "${CLANG_ARCH}-apple-ios15.0-simulator" \
             -dynamiclib \
             -install_name "@rpath/Mono.framework/Mono" \
             -compatibility_version 10.0 -current_version 10.0 \

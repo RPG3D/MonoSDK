@@ -128,8 +128,20 @@ jobs:
           if-no-files-found: error
 
   build-macos:
-    runs-on: macos-26
+    # macOS ships an x64 and an arm64 SDK, uploaded separately (Mac/x64, Mac/arm64).
+    # Each arch builds on a native runner — macos-26 is Apple Silicon (arm64),
+    # macos-26-intel is Intel (x64) — so the build is never cross-arch and
+    # BuildMonoSDK.sh's default arch (the host arch) already matches the target.
     if: github.event.inputs.build_macos == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-26
+          - arch: x64
+            runner: macos-26-intel
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout MonoSDK
         uses: actions/checkout@v4
@@ -140,25 +152,25 @@ jobs:
         run: |
           git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
 
-      - name: Build MonoSDK (macOS)
+      - name: Build MonoSDK (macOS ${{ matrix.arch }})
         run: |
           chmod +x BuildMonoSDK.sh
-          ./BuildMonoSDK.sh $(pwd)/dotnet-runtime macos ${{ github.event.inputs.build_type || 'Debug' }}
+          ./BuildMonoSDK.sh $(pwd)/dotnet-runtime macos ${{ github.event.inputs.build_type || 'Debug' }} ${{ matrix.arch }}
 
       - name: Set artifact variables
         id: artifact
         run: |
           if [ "${{ github.event.inputs.build_type || 'Debug' }}" == "Release" ]; then
-            echo "name=MonoSDK-macOS-arm64-Release" >> $GITHUB_OUTPUT
+            echo "name=MonoSDK-macOS-${{ matrix.arch }}-Release" >> $GITHUB_OUTPUT
           else
-            echo "name=MonoSDK-macOS-arm64-Debug" >> $GITHUB_OUTPUT
+            echo "name=MonoSDK-macOS-${{ matrix.arch }}-Debug" >> $GITHUB_OUTPUT
           fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.artifact.outputs.name }}
-          path: Mac/
+          path: Mac/${{ matrix.arch }}/
           retention-days: 30
           if-no-files-found: error
 
@@ -198,8 +210,20 @@ jobs:
           if-no-files-found: error
 
   build-iossimulator:
-    runs-on: macos-26
+    # The simulator ships an arm64 and an x86_64 SDK, uploaded separately
+    # (IOSSimulator/arm64, IOSSimulator/x64). UE 5.7 builds the arm64 simulator only;
+    # the x64 SDK is for engine lines/toolchains that still support it.
+    # Each arch builds on a native runner, same arrangement as build-macos.
     if: github.event.inputs.build_iossimulator == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-26
+          - arch: x64
+            runner: macos-26-intel
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout MonoSDK
         uses: actions/checkout@v4
@@ -210,25 +234,25 @@ jobs:
         run: |
           git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
 
-      - name: Build MonoSDK (iOS Simulator)
+      - name: Build MonoSDK (iOS Simulator ${{ matrix.arch }})
         run: |
           chmod +x BuildMonoSDK.sh
-          ./BuildMonoSDK.sh $(pwd)/dotnet-runtime iossimulator ${{ github.event.inputs.build_type || 'Debug' }}
+          ./BuildMonoSDK.sh $(pwd)/dotnet-runtime iossimulator ${{ github.event.inputs.build_type || 'Debug' }} ${{ matrix.arch }}
 
       - name: Set artifact variables
         id: artifact
         run: |
           if [ "${{ github.event.inputs.build_type || 'Debug' }}" == "Release" ]; then
-            echo "name=MonoSDK-iOS-Simulator-Release" >> $GITHUB_OUTPUT
+            echo "name=MonoSDK-iOS-Simulator-${{ matrix.arch }}-Release" >> $GITHUB_OUTPUT
           else
-            echo "name=MonoSDK-iOS-Simulator-Debug" >> $GITHUB_OUTPUT
+            echo "name=MonoSDK-iOS-Simulator-${{ matrix.arch }}-Debug" >> $GITHUB_OUTPUT
           fi
 
       - name: Upload iOS Simulator artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.artifact.outputs.name }}
-          path: IOSSimulator/
+          path: IOSSimulator/${{ matrix.arch }}/
           retention-days: 30
           if-no-files-found: error
 

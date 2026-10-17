@@ -61,17 +61,37 @@ public class MonoSDK : ModuleRules
 		{
 			PublicDefinitions.Add("UNREALSHARP_MONO=1");
 
-			string monoLib = Path.Combine(monoSdkRoot, "Mac", "lib");
-			string monoRuntime = Path.Combine(monoSdkRoot, "Mac", "runtime");
+			// macOS ships both an x64 and an arm64 SDK (Mac/x64, Mac/arm64), so the
+			// directory is resolved per target architecture. The legacy flat Mac/ dir
+			// (arm64-only SDKs from before the arch split) is still accepted.
+			string monoPlatformDir = ResolveMonoPlatformDir(monoSdkRoot, "Mac", Target.Architecture);
+			string monoLib = Path.Combine(monoPlatformDir, "lib");
+			string monoRuntime = Path.Combine(monoPlatformDir, "runtime");
 
 			PublicIncludePaths.Add(Path.Combine(monoSdkRoot, "include"));
 
-			// Link libcoreclr.dylib (Mono runtime; named "coreclr" per Microsoft unified naming)
+			// Link libcoreclr.dylib (Mono runtime; named "coreclr" per Microsoft unified naming).
+			// Its install_name is @rpath/libcoreclr.dylib (dotnet/runtime sets MACOSX_RPATH ON),
+			// so dyld resolves it from an LC_RPATH, not from this path. The linker records the
+			// install_name, not the path passed here.
 			string monoLibPath = Path.Combine(monoLib, "libcoreclr.dylib");
 			PublicAdditionalLibraries.Add(monoLibPath);
-			RuntimeDependencies.Add(monoLibPath);
 
-			// Native interop dylibs — BCL DllImport targets, must be staged next to libcoreclr.dylib
+			// Stage it next to the executable (same pattern as Win64's coreclr.dll). The rpath
+			// that makes it resolvable comes from UBT itself: MacToolChain adds
+			// "-rpath @loader_path/ -rpath @executable_path/" for every non-library link, and for
+			// monolithic builds it additionally derives a staged rpath per .dylib in
+			// RuntimeDependencies. PublicRuntimeLibraryPaths is NOT the mechanism to use here --
+			// only LinuxToolChain reads LinkEnvironment.RuntimeLibraryPaths.
+			RuntimeDependencies.Add("$(BinaryOutputDir)/libcoreclr.dylib", monoLibPath);
+
+			// Native interop dylibs — BCL DllImport targets, all with @rpath install names.
+			// Staged next to the executable so the same @executable_path rpath resolves them.
+			//
+			// They can arrive in either subdirectory, so both are searched:
+			//   lib/     — BuildMonoSDK.sh copies them there from artifacts/bin/native/<TFM>
+			//   runtime/ — dotnet/runtime bin-places $(NativeBinDir)*.dylib into the runtime
+			//              artifact, which BuildMonoSDK.sh copies wholesale into runtime/
 			string[] nativeDylibs =
 			{
 				"libSystem.Native.dylib",
@@ -83,9 +103,9 @@ public class MonoSDK : ModuleRules
 			};
 			foreach (string name in nativeDylibs)
 			{
-				string path = Path.Combine(monoRuntime, name);
-				if (File.Exists(path))
-					RuntimeDependencies.Add(path);
+				string path = FindInPlatformDir(monoLib, monoRuntime, name);
+				if (path != null)
+					RuntimeDependencies.Add("$(BinaryOutputDir)/" + name, path);
 			}
 
 			// BCL managed DLLs — staged as NonUFS (outside PAK, alongside the executable).
@@ -121,15 +141,17 @@ public class MonoSDK : ModuleRules
 		}
 		else if (bUseMono && Target.Platform == UnrealTargetPlatform.IOS)
 		{
-			// ── iOS / iOSSimulator (arm64) ──────────────────────────────────────────────
+			// ── iOS / iOSSimulator ──────────────────────────────────────────────────────
 			//
 			// UBT uses Target.Platform == IOS for BOTH real device and Simulator.
 			// The architecture distinguishes them:
 			//   UnrealArch.Arm64         → real iOS device   (MonoSDK/IOS/)
-			//   UnrealArch.IOSSimulator  → iOS Simulator     (MonoSDK/IOSSimulator/)
+			//   UnrealArch.IOSSimulator  → iOS Simulator     (MonoSDK/IOSSimulator/<arch>/)
 			//
-			// IOS (platform 2, arm64) and IOSSimulator (platform 7, arm64) use separate SDK dirs.
+			// IOS (platform 2, arm64) and IOSSimulator (platform 7) use separate SDK dirs.
 			// The two sets of static libs are ABI-incompatible and MUST NOT be mixed.
+			// The simulator SDK is shipped per arch (IOSSimulator/arm64, IOSSimulator/x64);
+			// GetIOSSimulatorArchName() picks the one this engine line builds against.
 			//
 			// iOS forbids JIT (W^X); Mono runs in INTERP+AOT mode:
 			//   - System.Private.CoreLib.dll.a : pre-AOT CoreLib (mono-aot-cross output)
@@ -141,10 +163,22 @@ public class MonoSDK : ModuleRules
 			PublicDefinitions.Add("UNREALSHARP_MONO=1");
 
 			// Select the MonoSDK sub-directory based on architecture.
-			// Default to IOSSimulator until real-device libs are built via BuildMonoSDK.sh ios.
 			bool bIsSimulator = (Target.Architecture == UnrealArch.IOSSimulator);
-			string platformDir = bIsSimulator ? "IOSSimulator" : "IOS";
-			string monoLib = Path.Combine(monoSdkRoot, platformDir, "lib");
+			string platformName = bIsSimulator ? "IOSSimulator" : "IOS";
+
+			// Real-device SDKs are arm64-only and stay flat (IOS/); simulator SDKs are
+			// split per arch (IOSSimulator/arm64, IOSSimulator/x64).
+			string monoPlatformDir;
+			if (bIsSimulator)
+			{
+				monoPlatformDir = ResolveMonoPlatformDir(monoSdkRoot, platformName, GetIOSSimulatorArchName());
+			}
+			else
+			{
+				monoPlatformDir = Path.Combine(monoSdkRoot, platformName);
+			}
+
+			string monoLib = Path.Combine(monoPlatformDir, "lib");
 
 			PublicIncludePaths.Add(Path.Combine(monoSdkRoot, "include"));
 
@@ -197,7 +231,7 @@ public class MonoSDK : ModuleRules
 
 			// BCL managed DLLs — staged as NonUFS (outside PAK).
 			// iOS uses static linking for native libs, but managed DLLs are loaded at runtime.
-			string monoRuntime = Path.Combine(monoSdkRoot, platformDir, "runtime");
+			string monoRuntime = Path.Combine(monoPlatformDir, "runtime");
 			if (Directory.Exists(monoRuntime))
 			{
 				RuntimeDependencies.Add(Path.Combine(monoRuntime, "...*.dll"), StagedFileType.NonUFS);
@@ -255,6 +289,111 @@ public class MonoSDK : ModuleRules
 				RuntimeDependencies.Add(Path.Combine(managedContentDir, "*.json"), StagedFileType.UFS);
 			}
 		}
+	}
+
+	// ── SDK directory resolution ────────────────────────────────────────────────
+	//
+	// Platforms that ship more than one architecture keep one SDK per arch
+	// (Mac/x64, Mac/arm64, IOSSimulator/x64, IOSSimulator/arm64); single-arch
+	// platforms stay flat (Win64/, Android/, IOS/, Linux/). The flat form is also
+	// accepted for Mac/IOSSimulator so an SDK downloaded before the arch split
+	// keeps working.
+	//
+	// Throws a BuildException when neither exists: a missing SDK otherwise surfaces
+	// as an obscure linker error, and the fix (run the MonoSDK build workflow, or
+	// download the release zip) is not guessable from that message.
+	private string ResolveMonoPlatformDir(string monoSdkRoot, string platformName, UnrealArch architecture)
+	{
+		string archName;
+		if (architecture == UnrealArch.Arm64)
+		{
+			archName = "arm64";
+		}
+		else if (architecture == UnrealArch.X64)
+		{
+			archName = "x64";
+		}
+		else
+		{
+			throw new BuildException(
+				$"MonoSDK: no arch mapping for UnrealArch.{architecture} on {platformName}. " +
+				"Add the arch to ResolveMonoPlatformDir() and to the BuildMonoSDK.sh matrix.");
+		}
+
+		return ResolveMonoPlatformDir(monoSdkRoot, platformName, archName);
+	}
+
+	private string ResolveMonoPlatformDir(string monoSdkRoot, string platformName, string archName)
+	{
+		// Requires real SDK payload (lib/ or runtime/), not merely an existing directory:
+		// the release workflow creates Mac/<arch>/ before downloading, so a failed download
+		// leaves an empty directory behind, and a bare Mac/ containing only that subdirectory
+		// would otherwise pass a "non-empty" test. Either way the result would be a confusing
+		// missing-dylib failure instead of the error below.
+		string archDir = Path.Combine(monoSdkRoot, platformName, archName);
+		if (HasMonoSdkPayload(archDir))
+		{
+			return archDir;
+		}
+
+		string flatDir = Path.Combine(monoSdkRoot, platformName);
+		if (HasMonoSdkPayload(flatDir))
+		{
+			Logger.LogWarning("MonoSDK: using legacy flat directory {0} (no populated {1}/ subdirectory). " +
+				"Rebuild the SDK with the arch-aware BuildMonoSDK.sh to get per-arch directories.",
+				flatDir, archName);
+			return flatDir;
+		}
+
+		throw new BuildException(
+			$"MonoSDK for {platformName} ({archName}) not found. Expected '{archDir}'.\n" +
+			$"Populate Source/ThirdParty/MonoSDK/{platformName}/{archName}/ by running the " +
+			$"'Build MonoSDK - All Platforms' GitHub workflow (platform={platformName}, arch={archName}) " +
+			$"and extracting the artifact, or download the release zip and copy " +
+			$"MonoSDK/{platformName}/{archName}/ into Source/ThirdParty/MonoSDK/.\n" +
+			$"Alternatively set bUseMono=false in Config/DefaultEngine.ini to use the CoreCLR backend.");
+	}
+
+	/// <summary>
+	/// True when the directory holds MonoSDK payload. BuildMonoSDK.sh always produces
+	/// lib/ (native libraries) and runtime/ (BCL), so requiring one of them distinguishes a
+	/// real SDK from a directory that merely exists.
+	/// </summary>
+	private static bool HasMonoSdkPayload(string platformDir)
+	{
+		return Directory.Exists(Path.Combine(platformDir, "lib"))
+			|| Directory.Exists(Path.Combine(platformDir, "runtime"));
+	}
+
+	/// <summary>
+	/// First existing <paramref name="fileName"/> across the given platform subdirectories,
+	/// or null when it is in none of them. Used where a file may legitimately live in more
+	/// than one subdirectory depending on how the SDK was produced.
+	/// </summary>
+	private static string FindInPlatformDir(string firstDir, string secondDir, string fileName)
+	{
+		foreach (string dir in new[] { firstDir, secondDir })
+		{
+			string candidate = Path.Combine(dir, fileName);
+			if (File.Exists(candidate))
+			{
+				return candidate;
+			}
+		}
+
+		return null;
+	}
+
+	/// <summary>
+	/// Architecture name for an iOS Simulator target. UE 5.7 defines the simulator
+	/// as a single arm64 architecture (see UEBuildIOS.cs: UnrealArch.IOSSimulator
+	/// maps to clang "arm64"), so the SDK resolves to IOSSimulator/arm64. The x64
+	/// simulator SDK is built for engine lines/toolchains that support it; wire it
+	/// up here if a future engine exposes the simulator architecture.
+	/// </summary>
+	private string GetIOSSimulatorArchName()
+	{
+		return "arm64";
 	}
 
 	// ── Embedded framework pre-signing (real iOS device, macOS host only) ──────
@@ -363,11 +502,28 @@ public class MonoSDK : ModuleRules
 			if (line.Contains("CSSMERR_", StringComparison.Ordinal))
 				continue;
 			string[] parts = line.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-			if (parts.Length >= 2 && parts[1].Length == 40 && parts[1].All(Uri.IsHexDigit))
+			if (parts.Length >= 2 && parts[1].Length == 40 && IsHexString(parts[1]))
 				return parts[1];
 		}
 
 		return null;
+	}
+
+	/// <summary>
+	/// True when every character is an ASCII hex digit.
+	/// Inlined rather than Uri.IsHexDigit: System.Uri is not in the assembly set UBT
+	/// references when compiling rules, so it fails to resolve on macOS.
+	/// </summary>
+	private static bool IsHexString(string value)
+	{
+		foreach (char c in value)
+		{
+			bool bIsHexDigit = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+			if (!bIsHexDigit)
+				return false;
+		}
+
+		return value.Length > 0;
 	}
 
 	private string ComputeSha256(string path)
