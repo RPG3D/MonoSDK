@@ -54,12 +54,14 @@ rem -- Build -------------------------------------------------------------------
 cd /d "%DOTNET_SRC%"
 
 echo ^>^>^> Building Mono + libs for Windows (x64, %BUILD_TYPE%)...
-rem Keep NuGet audit advisories from failing the build (same rationale as
-rem BuildMonoSDK.sh): dotnet/runtime treats NU1901-NU1904 as errors, so a newly
-rem published advisory against a build-time tooling package breaks every leg.
-rem %3B is the MSBuild escape for ';' -- a literal ';' would split the property.
-rem (In a batch file the escape itself must be doubled: %%3B -> %3B.)
-call "%DOTNET_SRC%\build.cmd" mono+libs -configuration %BUILD_TYPE% "/p:WarningsNotAsErrors=NU1901%%3BNU1902%%3BNU1903%%3BNU1904"
+rem NuGet audit advisories must not fail the build (same rationale as BuildMonoSDK.sh:
+rem dotnet/runtime treats NU1901-NU1904 as errors, so a newly published advisory against
+rem a build-time tooling package breaks every leg).
+rem Use NuGetAudit=false rather than WarningsNotAsErrors=NU1901%3B...: the list form
+rem needs an MSBuild %-escape inside a batch file, and a literal ';' splits the /p:
+rem value into several properties. A single-token property needs no escaping at all.
+rem The Unix legs keep the demote-to-warnings form, so advisories stay visible there.
+call "%DOTNET_SRC%\build.cmd" mono+libs -configuration %BUILD_TYPE% /p:NuGetAudit=false
 if errorlevel 1 (
     echo Error: build failed. >&2
     exit /b 1
