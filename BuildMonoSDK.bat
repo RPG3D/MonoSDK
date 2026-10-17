@@ -126,7 +126,7 @@ for /f "delims=" %%r in ('git -C "%DOTNET_SRC%" remote get-url origin 2^>nul')  
     echo.
     echo Platform: Windows ^(x64^)
     echo Build type: %BUILD_TYPE%
-    echo Build command: build.cmd mono+libs -configuration %BUILD_TYPE%
+    echo Build command: build.cmd mono+libs -configuration %BUILD_TYPE% /p:NuGetAudit=false
 ) > "%DEST%\VERSION.txt"
 
 echo ^>^>^> Done. SDK updated at: %DEST%
