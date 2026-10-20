@@ -228,12 +228,19 @@ public class MonoSDK : ModuleRules
 				SignEmbeddedFrameworkZip(monoLib);
 			}
 
-			// BCL managed DLLs — staged as NonUFS (outside PAK).
-			// iOS uses static linking for native libs, but managed DLLs are loaded at runtime.
+			// BCL managed DLLs — staged as UFS in Content/Managed/IOS.
+			// The UnrealSharp preload hook is invoked for corlib during mono_jit_init and
+			// reads it through UE's file manager, so the PAK copy is what the runtime needs.
+			// Keeping the BCL out of the filesystem also avoids iOS remapping/lowercasing
+			// native paths and Mono's case-sensitive lookups.
 			string monoRuntime = Path.Combine(monoPlatformDir, "runtime");
 			if (Directory.Exists(monoRuntime))
 			{
-				RuntimeDependencies.Add(Path.Combine(monoRuntime, "...*.dll"), StagedFileType.NonUFS);
+				foreach (string BclFile in Directory.EnumerateFiles(monoRuntime, "*.dll"))
+				{
+					string BclDest = "$(ProjectDir)/Content/Managed/IOS/" + Path.GetFileName(BclFile);
+					RuntimeDependencies.Add(BclDest, BclFile, StagedFileType.UFS);
+				}
 			}
 		}
 		else if (bUseMono && Target.Platform == UnrealTargetPlatform.Win64)
