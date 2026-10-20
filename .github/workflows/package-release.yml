@@ -66,7 +66,6 @@ jobs:
           Android/arm64:MonoSDK-Android-arm64
           IOS/arm64:MonoSDK-iOS-arm64
           IOSSimulator/arm64:MonoSDK-iOS-Simulator-arm64
-          IOSSimulator/x64:MonoSDK-iOS-Simulator-x64
           "
 
           for ENTRY in $ENTRIES; do
@@ -93,7 +92,7 @@ jobs:
         run: |
           echo ">>> Verifying downloaded SDKs..."
           for DIR in Linux/x64 Win64/x64 Mac/arm64 Mac/x64 Android/arm64 \
-                     IOS/arm64 IOSSimulator/arm64 IOSSimulator/x64; do
+                     IOS/arm64 IOSSimulator/arm64; do
             echo "=== $DIR ==="
             ls -la "$DIR/" 2>/dev/null || echo "❌ $DIR not available"
           done
@@ -180,13 +179,13 @@ jobs:
             - ✅ Mac (macOS arm64, macOS x64)
             - ✅ Android (arm64)
             - ✅ iOS (arm64)
-            - ✅ iOS Simulator (arm64, x64)
+            - ✅ iOS Simulator (arm64)
             - ✅ Linux (x64)
 
             ## Layout
             Every platform uses the same depth, `<Platform>/<arch>/`:
             `Win64/x64/`, `Android/arm64/`, `IOS/arm64/`, `Linux/x64/`,
-            `Mac/arm64/`, `Mac/x64/`, `IOSSimulator/arm64/`, `IOSSimulator/x64/`
+            `Mac/arm64/`, `Mac/x64/`, `IOSSimulator/arm64/`
             - UBT resolves `<Platform>/<arch>/` for the target
               (`MonoSDK.Build.cs` → `ResolveMonoPlatformDir`)
 

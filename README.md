@@ -18,7 +18,7 @@ Android/arm64/                              # Android
 IOS/arm64/                                  # iOS device
 Linux/x64/                                  # Linux
 Mac/arm64/          Mac/x64/                # macOS: both architectures
-IOSSimulator/arm64/ IOSSimulator/x64/       # iOS Simulator: both architectures
+IOSSimulator/arm64/                        # iOS Simulator (UE 5.7 targets arm64 only)
 include/                                    # shared Mono C headers
 ```
 
@@ -45,7 +45,7 @@ Supported platform/arch combinations — anything else is rejected up front:
 | Platform | Architectures | Output directory |
 |----------|---------------|------------------|
 | `macos` | `arm64`, `x64` | `Mac/arm64/`, `Mac/x64/` |
-| `iossimulator` | `arm64`, `x64` | `IOSSimulator/arm64/`, `IOSSimulator/x64/` |
+| `iossimulator` | `arm64` (the script also accepts `x64`) | `IOSSimulator/arm64/` |
 | `ios` | `arm64` | `IOS/` |
 | `android` | `arm64` | `Android/` |
 | `linux` | `x64` | `Linux/` |
@@ -58,7 +58,6 @@ Examples:
 ./BuildMonoSDK.sh ~/dotnet-runtime macos        Release arm64
 ./BuildMonoSDK.sh ~/dotnet-runtime macos        Release x64
 ./BuildMonoSDK.sh ~/dotnet-runtime iossimulator Release arm64
-./BuildMonoSDK.sh ~/dotnet-runtime iossimulator Release x64
 ./BuildMonoSDK.sh ~/dotnet-runtime android      Release arm64
 ```
 
@@ -68,8 +67,9 @@ Prerequisites: Visual Studio 2022 (Windows), Xcode (macOS/iOS), Android NDK (And
 
 Both workflows are `workflow_dispatch`-only and run on GitHub-hosted runners — Mono is not built on developer machines for releases.
 
-- `build-all.yml` — eight flat jobs, one per platform/arch, side by side on the Actions page: `build-linux`, `build-windows`, `build-macos-arm64`, `build-macos-x64`, `build-ios`, `build-iossimulator-arm64`, `build-iossimulator-x64`, `build-android`. All macOS legs run on `macos-26` (Apple Silicon); the x64 legs are cross-arch builds (`-arch x64`), which dotnet/runtime handles natively via `CMAKE_OSX_ARCHITECTURES`. Artifacts are named `MonoSDK-<platform>-<arch>-{build-type}` and uploaded from their `<Platform>/<arch>/` directory.
-- `package-release.yml` — downloads every platform artifact into the matching directory (`Mac/arm64`, `Mac/x64`, `IOSSimulator/arm64`, `IOSSimulator/x64`; flat for single-arch platforms), verifies them, and publishes a single release zip.
+- `build-all.yml` — seven flat jobs, one per platform/arch, side by side on the Actions page: `build-linux`, `build-windows`, `build-macos-arm64`, `build-macos-x64`, `build-ios`, `build-iossimulator-arm64`, `build-android`. All macOS legs run on `macos-26` (Apple Silicon); the x64 legs are cross-arch builds (`-arch x64`), which dotnet/runtime handles natively via `CMAKE_OSX_ARCHITECTURES`. Artifacts are named `MonoSDK-<platform>-<arch>-{build-type}` and uploaded from their `<Platform>/<arch>/` directory.
+  The iOS Simulator ships **arm64 only**: UE 5.7 defines a single simulator architecture (`UnrealArch.IOSSimulator` → clang `arm64`, `UEBuildIOS.cs`), so an x64 simulator SDK would never be selected. `BuildMonoSDK.sh` still accepts `iossimulator x64` for engine lines that expose it.
+- `package-release.yml` — downloads every platform artifact into the matching directory (`Mac/arm64`, `Mac/x64`, `IOSSimulator/arm64`; flat for single-arch platforms), verifies them, and publishes a single release zip.
 
 ## Repository Structure
 

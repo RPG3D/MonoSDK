@@ -275,43 +275,6 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
-  build-iossimulator-x64:
-    # Cross-arch build (-arch x64) on the Apple Silicon runner -> IOSSimulator/x64,
-    # same reasoning as build-macos-x64.
-    if: github.event.inputs.build_iossimulator == 'true'
-    runs-on: macos-26
-    steps:
-      - name: Checkout MonoSDK
-        uses: actions/checkout@v4
-        with:
-          ref: ci/auto-build
-
-      - name: Clone dotnet/runtime
-        run: |
-          git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
-
-      - name: Build MonoSDK (iOS Simulator x64)
-        run: |
-          chmod +x BuildMonoSDK.sh
-          ./BuildMonoSDK.sh $(pwd)/dotnet-runtime iossimulator ${{ github.event.inputs.build_type || 'Debug' }} x64
-
-      - name: Set artifact variables
-        id: artifact
-        run: |
-          if [ "${{ github.event.inputs.build_type || 'Debug' }}" == "Release" ]; then
-            echo "name=MonoSDK-iOS-Simulator-x64-Release" >> $GITHUB_OUTPUT
-          else
-            echo "name=MonoSDK-iOS-Simulator-x64-Debug" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Upload iOS Simulator x64 artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.artifact.outputs.name }}
-          path: IOSSimulator/x64/
-          retention-days: 30
-          if-no-files-found: error
-
   build-android:
     runs-on: macos-26
     if: github.event.inputs.build_android == 'true'
