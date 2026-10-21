@@ -284,12 +284,12 @@ public class MonoSDK : ModuleRules
 		}
 
 		// ── Project managed DLLs staging (all Mono platforms) ──────────────────
-		// PackageProjectMono publishes to Binaries/Managed/{Platform}/ (gitignored). Map
-		// every published file to the UFS destination Content/Managed/{Platform}/, which
-		// is what the preload hook and LoadOrder read from the PAK. Match only the current
-		// platform's subdirectory so Win64 DLLs can never leak into an APK/IPA.
-		// Note: the two-argument overload materializes the mapped files under Content/ at
-		// build time; that directory is a build product (gitignored), never an input.
+		// PackageProjectMono publishes directly into Content/Managed/{Platform}/; this
+		// registers that directory as UFS so the project assemblies end up in the PAK.
+		// Match only the current platform's subdirectory — avoids staging Win64 DLLs into
+		// an Android APK. Staging keeps the source-relative path (Content/Managed/...),
+		// never a Binaries/ path: UE treats Binaries as writable local state and a PAK
+		// entry below it can interfere with that.
 		if (bUseMono && Target.ProjectFile != null)
 		{
 			string projectDir = Path.GetDirectoryName(Target.ProjectFile.FullName)!;
@@ -298,19 +298,12 @@ public class MonoSDK : ModuleRules
 			// distinguish via architecture so simulator builds pick up IOSSimulator/.
 			if (Target.Platform == UnrealTargetPlatform.IOS && Target.Architecture == UnrealArch.IOSSimulator)
 				managedPlatformDir = "IOSSimulator";
-
-			string binaryManagedDir = Path.Combine(projectDir, "Binaries", "Managed", managedPlatformDir);
-			string ufsDestPrefix = "$(ProjectDir)/Content/Managed/" + managedPlatformDir + "/";
-
-			if (Directory.Exists(binaryManagedDir))
+			string managedContentDir = Path.Combine(projectDir, "Content", "Managed", managedPlatformDir);
+			if (Directory.Exists(managedContentDir))
 			{
-				foreach (string Pattern in new[] { "*.dll", "*.pdb", "*.json" })
-				{
-					foreach (string File in Directory.EnumerateFiles(binaryManagedDir, Pattern))
-					{
-						RuntimeDependencies.Add(ufsDestPrefix + Path.GetFileName(File), File, StagedFileType.UFS);
-					}
-				}
+				RuntimeDependencies.Add(Path.Combine(managedContentDir, "*.dll"), StagedFileType.UFS);
+				RuntimeDependencies.Add(Path.Combine(managedContentDir, "*.pdb"), StagedFileType.UFS);
+				RuntimeDependencies.Add(Path.Combine(managedContentDir, "*.json"), StagedFileType.UFS);
 			}
 		}
 	}
