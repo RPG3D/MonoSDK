@@ -137,10 +137,16 @@ public class MonoSDK : ModuleRules
 			string aplPath = Path.Combine(ModuleDirectory, "MonoSDK_APL.xml");
 			AdditionalPropertiesForReceipt.Add("AndroidPlugin", aplPath);
 
-			// BCL managed DLLs — staged as NonUFS (outside PAK).
+			// BCL managed DLLs — mapped UFS into Content/Managed/Android (no physical copy).
+			// The preload hook serves them from the PAK, exactly like iOS, so the runtime
+			// never depends on a native SDK path inside the APK.
 			if (Directory.Exists(monoRuntime))
 			{
-				RuntimeDependencies.Add(Path.Combine(monoRuntime, "...*.dll"), StagedFileType.NonUFS);
+				foreach (string BclFile in Directory.EnumerateFiles(monoRuntime, "*.dll"))
+				{
+					string BclDest = "$(ProjectDir)/Content/Managed/Android/" + Path.GetFileName(BclFile);
+					RuntimeDependencies.Add(BclDest, BclFile, StagedFileType.UFS);
+				}
 			}
 		}
 		else if (bUseMono && Target.Platform == UnrealTargetPlatform.IOS)
@@ -278,10 +284,12 @@ public class MonoSDK : ModuleRules
 		}
 
 		// ── Project managed DLLs staging (all Mono platforms) ──────────────────
-		// Register Content/Managed/{Platform}/ as UFS so project DLLs get cooked into PAK.
-		// Match only the CURRENT platform's subdirectory — avoids staging Win64 DLLs into Android APK.
-		// BCL is handled per-platform above as NonUFS (PAK 外).
-		// This is in MonoSDK.Build.cs so game projects don't need any Build.cs changes.
+		// PackageProjectMono publishes to Binaries/Managed/{Platform}/ (gitignored). Map
+		// every published file to the UFS destination Content/Managed/{Platform}/, which
+		// is what the preload hook and LoadOrder read from the PAK. Match only the current
+		// platform's subdirectory so Win64 DLLs can never leak into an APK/IPA.
+		// Note: the two-argument overload materializes the mapped files under Content/ at
+		// build time; that directory is a build product (gitignored), never an input.
 		if (bUseMono && Target.ProjectFile != null)
 		{
 			string projectDir = Path.GetDirectoryName(Target.ProjectFile.FullName)!;
@@ -290,12 +298,19 @@ public class MonoSDK : ModuleRules
 			// distinguish via architecture so simulator builds pick up IOSSimulator/.
 			if (Target.Platform == UnrealTargetPlatform.IOS && Target.Architecture == UnrealArch.IOSSimulator)
 				managedPlatformDir = "IOSSimulator";
-			string managedContentDir = Path.Combine(projectDir, "Content", "Managed", managedPlatformDir);
-			if (Directory.Exists(managedContentDir))
+
+			string binaryManagedDir = Path.Combine(projectDir, "Binaries", "Managed", managedPlatformDir);
+			string ufsDestPrefix = "$(ProjectDir)/Content/Managed/" + managedPlatformDir + "/";
+
+			if (Directory.Exists(binaryManagedDir))
 			{
-				RuntimeDependencies.Add(Path.Combine(managedContentDir, "*.dll"), StagedFileType.UFS);
-				RuntimeDependencies.Add(Path.Combine(managedContentDir, "*.pdb"), StagedFileType.UFS);
-				RuntimeDependencies.Add(Path.Combine(managedContentDir, "*.json"), StagedFileType.UFS);
+				foreach (string Pattern in new[] { "*.dll", "*.pdb", "*.json" })
+				{
+					foreach (string File in Directory.EnumerateFiles(binaryManagedDir, Pattern))
+					{
+						RuntimeDependencies.Add(ufsDestPrefix + Path.GetFileName(File), File, StagedFileType.UFS);
+					}
+				}
 			}
 		}
 	}
