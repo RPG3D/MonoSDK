@@ -147,6 +147,13 @@ public class MonoSDK : ModuleRules
 					string BclDest = "$(ProjectDir)/Content/Managed/Android/" + Path.GetFileName(BclFile);
 					RuntimeDependencies.Add(BclDest, BclFile, StagedFileType.UFS);
 				}
+				// Sidecar PDBs for the soft debugger: the host preloads them from the PAK
+				// and passes them to mono_debug_open_image_from_memory.
+				foreach (string BclPdb in Directory.EnumerateFiles(monoRuntime, "*.pdb"))
+				{
+					string PdbDest = "$(ProjectDir)/Content/Managed/Android/" + Path.GetFileName(BclPdb);
+					RuntimeDependencies.Add(PdbDest, BclPdb, StagedFileType.UFS);
+				}
 			}
 		}
 		else if (bUseMono && Target.Platform == UnrealTargetPlatform.IOS)
@@ -246,6 +253,11 @@ public class MonoSDK : ModuleRules
 				{
 					string BclDest = "$(ProjectDir)/Content/Managed/IOS/" + Path.GetFileName(BclFile);
 					RuntimeDependencies.Add(BclDest, BclFile, StagedFileType.UFS);
+				}
+				foreach (string BclPdb in Directory.EnumerateFiles(monoRuntime, "*.pdb"))
+				{
+					string PdbDest = "$(ProjectDir)/Content/Managed/IOS/" + Path.GetFileName(BclPdb);
+					RuntimeDependencies.Add(PdbDest, BclPdb, StagedFileType.UFS);
 				}
 			}
 		}
