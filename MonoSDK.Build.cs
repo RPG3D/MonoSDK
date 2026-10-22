@@ -137,10 +137,23 @@ public class MonoSDK : ModuleRules
 			string aplPath = Path.Combine(ModuleDirectory, "MonoSDK_APL.xml");
 			AdditionalPropertiesForReceipt.Add("AndroidPlugin", aplPath);
 
-			// BCL managed DLLs — staged as NonUFS (outside PAK).
+			// BCL managed DLLs — mapped UFS into Content/Managed/Android (no physical copy).
+			// The preload hook serves them from the PAK, exactly like iOS, so the runtime
+			// never depends on a native SDK path inside the APK.
 			if (Directory.Exists(monoRuntime))
 			{
-				RuntimeDependencies.Add(Path.Combine(monoRuntime, "...*.dll"), StagedFileType.NonUFS);
+				foreach (string BclFile in Directory.EnumerateFiles(monoRuntime, "*.dll"))
+				{
+					string BclDest = "$(ProjectDir)/Content/Managed/Android/" + Path.GetFileName(BclFile);
+					RuntimeDependencies.Add(BclDest, BclFile, StagedFileType.UFS);
+				}
+				// Sidecar PDBs for the soft debugger: the host preloads them from the PAK
+				// and passes them to mono_debug_open_image_from_memory.
+				foreach (string BclPdb in Directory.EnumerateFiles(monoRuntime, "*.pdb"))
+				{
+					string PdbDest = "$(ProjectDir)/Content/Managed/Android/" + Path.GetFileName(BclPdb);
+					RuntimeDependencies.Add(PdbDest, BclPdb, StagedFileType.UFS);
+				}
 			}
 		}
 		else if (bUseMono && Target.Platform == UnrealTargetPlatform.IOS)
@@ -241,6 +254,11 @@ public class MonoSDK : ModuleRules
 					string BclDest = "$(ProjectDir)/Content/Managed/IOS/" + Path.GetFileName(BclFile);
 					RuntimeDependencies.Add(BclDest, BclFile, StagedFileType.UFS);
 				}
+				foreach (string BclPdb in Directory.EnumerateFiles(monoRuntime, "*.pdb"))
+				{
+					string PdbDest = "$(ProjectDir)/Content/Managed/IOS/" + Path.GetFileName(BclPdb);
+					RuntimeDependencies.Add(PdbDest, BclPdb, StagedFileType.UFS);
+				}
 			}
 		}
 		else if (bUseMono && Target.Platform == UnrealTargetPlatform.Win64)
@@ -278,10 +296,12 @@ public class MonoSDK : ModuleRules
 		}
 
 		// ── Project managed DLLs staging (all Mono platforms) ──────────────────
-		// Register Content/Managed/{Platform}/ as UFS so project DLLs get cooked into PAK.
-		// Match only the CURRENT platform's subdirectory — avoids staging Win64 DLLs into Android APK.
-		// BCL is handled per-platform above as NonUFS (PAK 外).
-		// This is in MonoSDK.Build.cs so game projects don't need any Build.cs changes.
+		// PackageProjectMono publishes directly into Content/Managed/{Platform}/; this
+		// registers that directory as UFS so the project assemblies end up in the PAK.
+		// Match only the current platform's subdirectory — avoids staging Win64 DLLs into
+		// an Android APK. Staging keeps the source-relative path (Content/Managed/...),
+		// never a Binaries/ path: UE treats Binaries as writable local state and a PAK
+		// entry below it can interfere with that.
 		if (bUseMono && Target.ProjectFile != null)
 		{
 			string projectDir = Path.GetDirectoryName(Target.ProjectFile.FullName)!;
