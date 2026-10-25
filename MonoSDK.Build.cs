@@ -39,6 +39,79 @@ using EpicGames.Core;
 using Microsoft.Extensions.Logging;
 using UnrealBuildTool;
 
+// Runtime-backend resolver shared by every consumer that needs the backend decision at
+// UBT time (MonoSDK linkage, UnrealSharpCore hostfxr includes). UBT compiles all Build.cs
+// into one rules assembly, so this class is callable from the other Build.cs files.
+//
+// The backend is baked into EACH target binary at its own build time: an Android game
+// target evaluates Android → Mono, while the Win64 editor target evaluates Win64 → its
+// own choice. A cook run by UnrealEditor-Cmd therefore always executes the EDITOR
+// target's backend, never the cooked target's — no runtime coupling there.
+//
+// Runtime-backend selection as a layered override chain, mirroring UE's ini hierarchy
+// philosophy (general → specific, later layers win):
+//   layer 0 (base):    platform default — editor targets: CoreCLR (upstream editor);
+//                      game targets: Android/iOS → Mono (no CoreCLR mobile host on this
+//                      branch), Win64/Mac/Linux → CoreCLR (upstream hostfxr mechanism)
+//   layer 1:           [UnrealSharp] DotNetRuntime=Mono|CoreCLR — global intent; the ini
+//                      hierarchy is read with Target.Platform, so AndroidEngine.ini etc.
+//                      refine it per platform
+//   layer 2:           [UnrealSharp] DotNetRuntimeEditor=Mono|CoreCLR — editor-target
+//                      override (e.g. editor Mono for debugging while packaged stays CoreCLR)
+public static class UnrealSharpRuntimeSelection
+{
+	public static bool ShouldUseMono(ReadOnlyTargetRules Target)
+	{
+		// Layer 0 — platform default.
+		bool bUseMono = Target.bBuildEditor
+			? false // editors are desktop-only; upstream editor default is CoreCLR
+			: (Target.Platform == UnrealTargetPlatform.Android || Target.Platform == UnrealTargetPlatform.IOS);
+
+		// Layer 1 — global key (platform ini layering applies).
+		if (EngineIniGetString(Target, "DotNetRuntime", out string DotNetRuntime)
+			&& TryParseRuntime(DotNetRuntime, "DotNetRuntime", out bool bMono))
+		{
+			bUseMono = bMono;
+		}
+
+		// Layer 2 — editor-target override.
+		if (Target.bBuildEditor
+			&& EngineIniGetString(Target, "DotNetRuntimeEditor", out string EditorOverride)
+			&& TryParseRuntime(EditorOverride, "DotNetRuntimeEditor", out bool bEditorMono))
+		{
+			bUseMono = bEditorMono;
+		}
+
+		return bUseMono;
+	}
+
+	private static bool EngineIniGetString(ReadOnlyTargetRules Target, string Key, out string Value)
+	{
+		ConfigHierarchy EngineIni = ConfigCache.ReadHierarchy(
+			ConfigHierarchyType.Engine,
+			DirectoryReference.FromFile(Target.ProjectFile),
+			Target.Platform);
+		return EngineIni.GetString("UnrealSharp", Key, out Value);
+	}
+
+	private static bool TryParseRuntime(string Value, string Key, out bool bMono)
+	{
+		if (Value.Equals("Mono", StringComparison.OrdinalIgnoreCase))
+		{
+			bMono = true;
+			return true;
+		}
+		if (Value.Equals("CoreCLR", StringComparison.OrdinalIgnoreCase))
+		{
+			bMono = false;
+			return true;
+		}
+		Log.TraceWarning("UnrealSharp: invalid {0} value '{1}' (expected Mono or CoreCLR); ignoring.", Key, Value);
+		bMono = false;
+		return false;
+	}
+}
+
 public class MonoSDK : ModuleRules
 {
 	public MonoSDK(ReadOnlyTargetRules Target) : base(Target)
@@ -49,13 +122,8 @@ public class MonoSDK : ModuleRules
 		// Build.cs and all SDK artifacts live in the same directory.
 		string monoSdkRoot = ModuleDirectory;
 
-		// ── Read ini switches from DefaultEngine.ini [UnrealSharp] ──────────────
-		bool bUseMono = false;
-		ConfigHierarchy EngineIni = ConfigCache.ReadHierarchy(
-			ConfigHierarchyType.Engine,
-			DirectoryReference.FromFile(Target.ProjectFile),
-			Target.Platform);
-		EngineIni.GetBool("UnrealSharp", "bUseMono", out bUseMono);
+		// ── Runtime backend selection ─────────────────────────────────────────────
+		bool bUseMono = UnrealSharpRuntimeSelection.ShouldUseMono(Target);
 
 		if (bUseMono && Target.Platform == UnrealTargetPlatform.Mac)
 		{
