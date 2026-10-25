@@ -123,6 +123,26 @@ public class MonoSDK : ModuleRules
 		string monoSdkRoot = ModuleDirectory;
 
 		// ── Runtime backend selection ─────────────────────────────────────────────
+		// The ini files feeding UnrealSharpRuntimeSelection are NOT tracked by UBT's
+		// TargetMakefile (ConfigCache reads are invisible to makefile invalidation), so
+		// a DotNetRuntime/DotNetRuntimeEditor switch alone would silently keep the stale
+		// backend. Register them as external dependencies so any change re-runs the
+		// rules (and re-bakes UNREALSHARP_MONO). UBT's Engine hierarchy layers read the
+		// PLATFORM-SUBDIR form (Config/Android/AndroidEngine.ini), not the runtime-style
+		// flat Config/AndroidEngine.ini — see EnumerateConfigFileLocations.
+		if (Target.ProjectFile != null)
+		{
+			string ProjectConfigDir = Path.Combine(Path.GetDirectoryName(Target.ProjectFile.FullName)!, "Config");
+			foreach (string IniName in new[] { "DefaultEngine.ini", "Android/AndroidEngine.ini", "IOS/IOSEngine.ini", "Windows/WindowsEngine.ini", "Mac/MacEngine.ini" })
+			{
+				string IniPath = Path.Combine(ProjectConfigDir, IniName);
+				if (File.Exists(IniPath))
+				{
+					ExternalDependencies.Add(IniPath);
+				}
+			}
+		}
+
 		bool bUseMono = UnrealSharpRuntimeSelection.ShouldUseMono(Target);
 
 		if (bUseMono && Target.Platform == UnrealTargetPlatform.Mac)
