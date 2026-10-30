@@ -568,16 +568,18 @@ public class MonoSDK : ModuleRules
 		string cachePath = Path.Combine(monoLibDir, ".framework_sign_cache.txt");
 		try
 		{
-			if (IsInSignCache(cachePath, ComputeSha256(zipPath)))
-			{
-				Logger.LogInformation("MonoSDK: Mono.embeddedframework.zip already signed; skipping.");
-				return;
-			}
-
-			string identity = FindCodeSigningIdentity();
+			// The identity is part of the key: a renewed certificate, a different team or a
+			// manual<->automatic switch must re-sign, but the zip bytes are unchanged then.
+			string identity = FindCodeSigningIdentity(GetConfiguredSigningTeam());
 			if (identity == null)
 			{
 				Logger.LogWarning("MonoSDK: no code-signing identity found; framework signing skipped.");
+				return;
+			}
+
+			if (IsInSignCache(cachePath, ComputeSha256(zipPath), identity))
+			{
+				Logger.LogInformation("MonoSDK: Mono.embeddedframework.zip already signed; skipping.");
 				return;
 			}
 
@@ -620,8 +622,8 @@ public class MonoSDK : ModuleRules
 				Directory.Delete(workDir, true);
 			}
 
-			// Cache the hash of the signed zip now on disk so future UBT runs skip.
-			AppendToSignCache(cachePath, ComputeSha256(zipPath));
+			// Cache "<zip sha256> <identity sha1>" of the signed zip so future runs skip.
+			AppendToSignCache(cachePath, ComputeSha256(zipPath), identity);
 			Logger.LogInformation("MonoSDK: Mono.embeddedframework.zip signed; pristine original kept at {0}.bak.",
 				zipPath);
 		}
@@ -632,18 +634,22 @@ public class MonoSDK : ModuleRules
 	}
 
 	/// <summary>
-	/// SHA-1 of the first valid code-signing identity from the keychain
+	/// SHA-1 of a valid code-signing identity from the keychain
 	/// ("security find-identity -v -p codesigning"), or null when none exists.
 	/// Returns the 40-hex SHA-1, not the display name: the hash uniquely pins one
 	/// certificate instance, so codesign never resolves to a revoked or duplicate-name
 	/// cert. Lines with a CSSMERR_ marker are expired/revoked certs and are skipped.
 	/// Works for both manual ("iPhone Developer: ...") and automatic
-	/// ("Apple Development: ...") signing setups.
+	/// ("Apple Development: ...") signing setups. When a team is configured, an identity
+	/// carrying that team is preferred: signing the nested dylibs with another team's
+	/// certificate still fails dlopen on device.
 	/// </summary>
-	private string FindCodeSigningIdentity()
+	private string FindCodeSigningIdentity(string preferredTeam)
 	{
 		(_, string stdout) =
 			RunProcessCapture("/usr/bin/security", new[] { "find-identity", "-v", "-p", "codesigning" });
+
+		string fallback = null;
 		foreach (string line in stdout.Split('\n'))
 		{
 			// Skip expired/revoked certs (CSSMERR_TP_CERT_* marker); accept only a
@@ -651,8 +657,38 @@ public class MonoSDK : ModuleRules
 			if (line.Contains("CSSMERR_", StringComparison.Ordinal))
 				continue;
 			string[] parts = line.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-			if (parts.Length >= 2 && parts[1].Length == 40 && IsHexString(parts[1]))
+			if (parts.Length < 2 || parts[1].Length != 40 || !IsHexString(parts[1]))
+				continue;
+
+			if (preferredTeam != null && line.Contains(preferredTeam, StringComparison.Ordinal))
 				return parts[1];
+
+			fallback ??= parts[1];
+		}
+
+		return fallback;
+	}
+
+	/// <summary>
+	/// Team identifier from Config/IOS/IOSEngine.ini (CodeSigningTeam), or null.
+	/// </summary>
+	private string GetConfiguredSigningTeam()
+	{
+		if (Target.ProjectFile == null)
+			return null;
+
+		string iniPath = Path.Combine(Target.ProjectFile.Directory.FullName, "Config", "IOS", "IOSEngine.ini");
+		if (!File.Exists(iniPath))
+			return null;
+
+		foreach (string line in File.ReadAllLines(iniPath))
+		{
+			string trimmed = line.Trim();
+			if (!trimmed.StartsWith("CodeSigningTeam=", StringComparison.Ordinal))
+				continue;
+			string team = trimmed.Substring("CodeSigningTeam=".Length).Trim();
+			if (team.Length > 0)
+				return team;
 		}
 
 		return null;
@@ -680,19 +716,22 @@ public class MonoSDK : ModuleRules
 		return Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))).ToLowerInvariant();
 	}
 
-	private bool IsInSignCache(string cachePath, string hash)
+	private bool IsInSignCache(string cachePath, string hash, string identity)
 	{
-		return File.Exists(cachePath)
-			&& File.ReadAllLines(cachePath).Any(line => line.StartsWith(hash, StringComparison.OrdinalIgnoreCase));
+		if (!File.Exists(cachePath))
+			return false;
+
+		string expected = hash + " " + identity;
+		return File.ReadAllLines(cachePath).Any(line => line.StartsWith(expected, StringComparison.OrdinalIgnoreCase));
 	}
 
-	private void AppendToSignCache(string cachePath, string hash)
+	private void AppendToSignCache(string cachePath, string hash, string identity)
 	{
 		const int MaxCacheLines = 64;
 		List<string> lines = File.Exists(cachePath)
 			? File.ReadAllLines(cachePath).ToList()
 			: new List<string>();
-		lines.Add(hash + " 1");
+		lines.Add(hash + " " + identity);
 		if (lines.Count > MaxCacheLines)
 			lines.RemoveRange(0, lines.Count - MaxCacheLines);
 
