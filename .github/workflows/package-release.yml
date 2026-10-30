@@ -196,7 +196,7 @@ jobs:
             4. Or use the build scripts to rebuild from source
 
             ## Build Info
-            Built from: https://github.com/dotnet/runtime.git (branch: release/10.0)
+            Built from: https://github.com/dotnet/runtime.git (tag: v10.0.14)
             Build date: ${{ github.event.inputs.version || github.ref_name }}
           files: |
             package/${{ env.ZIP_NAME }}

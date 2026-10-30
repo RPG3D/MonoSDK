@@ -1,5 +1,11 @@
 name: Build MonoSDK - All Platforms
 
+# dotnet/runtime source pin. Mono is bound to dotnet 10 (11 removed mono from the
+# coreclr tree), so this tracks the 10.0 servicing tags; bump this one value to move
+# every platform job to a new source.
+env:
+  RUNTIME_TAG: v10.0.14
+
 on:
   workflow_dispatch:
     inputs:
@@ -66,7 +72,7 @@ jobs:
 
       - name: Clone dotnet/runtime
         run: |
-          git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
+          git clone --depth 1 --branch "${{ env.RUNTIME_TAG }}" https://github.com/dotnet/runtime.git dotnet-runtime
 
       - name: Build MonoSDK (Linux)
         run: |
@@ -101,7 +107,7 @@ jobs:
 
       - name: Clone dotnet/runtime
         run: |
-          git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
+          git clone --depth 1 --branch "${{ env.RUNTIME_TAG }}" https://github.com/dotnet/runtime.git dotnet-runtime
         shell: bash
 
       - name: Build MonoSDK (Windows)
@@ -139,7 +145,7 @@ jobs:
 
       - name: Clone dotnet/runtime
         run: |
-          git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
+          git clone --depth 1 --branch "${{ env.RUNTIME_TAG }}" https://github.com/dotnet/runtime.git dotnet-runtime
 
       - name: Build MonoSDK (macOS arm64)
         run: |
@@ -179,7 +185,7 @@ jobs:
 
       - name: Clone dotnet/runtime
         run: |
-          git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
+          git clone --depth 1 --branch "${{ env.RUNTIME_TAG }}" https://github.com/dotnet/runtime.git dotnet-runtime
 
       - name: Build MonoSDK (macOS x64)
         run: |
@@ -214,7 +220,7 @@ jobs:
 
       - name: Clone dotnet/runtime
         run: |
-          git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
+          git clone --depth 1 --branch "${{ env.RUNTIME_TAG }}" https://github.com/dotnet/runtime.git dotnet-runtime
 
       - name: Build MonoSDK (iOS)
         run: |
@@ -251,7 +257,7 @@ jobs:
 
       - name: Clone dotnet/runtime
         run: |
-          git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
+          git clone --depth 1 --branch "${{ env.RUNTIME_TAG }}" https://github.com/dotnet/runtime.git dotnet-runtime
 
       - name: Build MonoSDK (iOS Simulator arm64)
         run: |
@@ -298,7 +304,7 @@ jobs:
 
       - name: Clone dotnet/runtime
         run: |
-          git clone --depth 1 --branch release/10.0 https://github.com/dotnet/runtime.git dotnet-runtime
+          git clone --depth 1 --branch "${{ env.RUNTIME_TAG }}" https://github.com/dotnet/runtime.git dotnet-runtime
 
       - name: Build MonoSDK (Android)
         run: |
